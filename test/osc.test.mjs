@@ -46,3 +46,12 @@ test('builds device IDs from the documented examples', () => {
 	assert.equal(isValidMac('30-49-50-a0-30-ec'), true)
 	assert.equal(buildAddress('TwPRO304950a030ec', 'application/mode'), '/v1/TwPRO304950a030ec/application/mode')
 })
+
+test('computes broadcast addresses', async () => {
+	const { broadcastAddress, printable } = await import('../dist/discovery.js')
+	assert.equal(broadcastAddress('192.168.0.104', '255.255.255.0'), '192.168.0.255')
+	assert.equal(broadcastAddress('10.1.2.3', '255.255.0.0'), '10.1.255.255')
+	assert.equal(broadcastAddress('10.0.0.5', '255.255.255.252'), '10.0.0.7')
+	assert.equal(broadcastAddress('bad', '255.255.255.0'), null)
+	assert.equal(printable(Buffer.from([0xc0, 0xa8, 0, 1, 0x4f, 0x4b, 0x54, 0x77])), 'OKTw')
+})
