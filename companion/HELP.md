@@ -1,3 +1,44 @@
-## Your module
+## Twinkly Pro (OSC)
 
-Write some help for your users here!
+Controls Twinkly Pro controllers using the OSC interface documented at https://help.twinklypro.com/guides/osc/.
+
+### Before you start
+
+1. In the Twinkly Pro app: **Devices > your Object > Object Information > Device Information > Advanced Configuration > OTHER**, enable **OSC**, save and confirm. OSC is off by default.
+2. The controller must be configured, linked to your account, and have your effects installed.
+3. Companion and the controller must be on the same LAN. Avoid changing controller IPs after programming buttons.
+
+### Configuration
+
+- **Controller IP or broadcast address**: a controller's IP, or a subnet broadcast address (e.g. `192.168.0.255`) to reach many controllers without knowing their IPs. Default `255.255.255.255`.
+- **OSC port**: `9000`.
+- **Default target**:
+  - All controllers (`*`)
+  - All PRO / MAX (`TwPRO*`)
+  - All PLUS / Lightwall (`TwPLUS*`)
+  - A specific controller: product type plus its MAC address (Device Information in the app), giving an ID like `TwPRO304950a030ec`.
+
+Every action can override the default target.
+
+### Actions
+
+- **Lights off**, **Play effect** (by handle 0-15+ or UUID), **Start playlist**
+- **Set brightness** (absolute 0-100), **Adjust brightness** (relative -100..100), **Brightness filter on/off**
+- **Send raw OSC** to `/v1/<device_id>/<path>`
+- **Scan network (experimental)**: see below
+
+Effect handles and UUIDs are listed in the app's Controls panel for the Object.
+
+### No feedback from controllers
+
+Twinkly Pro documents no OSC replies. Connection status only means Companion can transmit UDP. The module's variables (`mode`, `effect`, `brightness`, `brightness_filter`) and feedbacks show what Companion _last sent_, not the real state. Changes made in the app or by other systems are not seen.
+
+### Discovery
+
+There is no documented discovery mechanism. Use the controller IP, or a broadcast address with a wildcard target. The experimental **Scan** action sends a probe copied from consumer Twinkly lights (UDP 5555) and logs replies; it is unverified on Pro hardware and may find nothing.
+
+### Notes on ambiguous parts of the guide
+
+- The guide's playlist example sends an integer after `playlist`; its meaning is undocumented, so it is exposed as an option (default 0).
+- "Disable brightness filter" sends `disabled A 100`; the guide doesn't specify the value for that case.
+- Effect handle range is given as both 0-15 and 0-n.

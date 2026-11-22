@@ -1,11 +1,18 @@
-# companion-module-[replace with module name]
+# companion-module-twinkly-pro
 
-See [HELP.md](./companion/HELP.md) and [LICENSE](./LICENSE)
+Bitfocus Companion module for [Twinkly Pro](https://twinklypro.com) controllers (PRO, MAX, PLUS, Lightwall) using their OSC interface.
 
-## Getting started
+See [HELP.md](./companion/HELP.md) and [LICENSE](./LICENSE).
 
-Executing a `yarn` command should perform all necessary steps to develop the module, if it does not then follow the steps below.
+## Development
 
-The module can be built once with `yarn build`. This should be enough to get the module to be loadable by companion.
+```bash
+yarn            # install
+yarn build      # compile to dist/
+yarn dev        # watch mode
+yarn test       # build + unit tests (OSC encoding and addressing)
+yarn lint
+yarn package    # build a distributable .tgz
+```
 
-While developing the module, by using `yarn dev` the compiler will be run in watch mode to recompile the files on change.
+Protocol reference: <https://help.twinklypro.com/guides/osc/>
