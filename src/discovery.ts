@@ -2,29 +2,38 @@ import dgram from 'node:dgram'
 import os from 'node:os'
 
 /**
- * EXPERIMENTAL / UNVERIFIED for Twinkly Pro.
+ * Discovery by UDP broadcast on port 5555.
  *
- * Twinkly Pro's documentation describes no discovery mechanism. Consumer Twinkly lights answer a UDP
- * broadcast on port 5555 (see https://github.com/twinklyjs/twinklyjs and the xLights source, which
- * sends a 0x01 byte followed by "discover"). A valid reply has "OK" at bytes 4-5 and the controller
- * name from byte 6. Raw hex is kept so the real behaviour of Pro controllers can be inspected.
+ * Twinkly Pro's documentation describes no discovery mechanism, but Pro controllers answer the same
+ * probe that consumer Twinkly lights do (verified on PRO hardware). Probe: a 0x01 byte followed by
+ * "discover" (as sent by xLights). Reply layout:
+ *
+ *   bytes 0-3  device IP (consumer lights: reversed byte order, Pro: normal order; unused, we use the sender address)
+ *   bytes 4-5  tag: "OK" for consumer lights, "TP" for Twinkly Pro
+ *   bytes 6+   NUL-terminated name, e.g. "Twinkly_D4807D" (consumer) or "TwPRO_a00f6c" (Pro)
+ *
+ * The name suffix is the last 3 bytes of the MAC address.
  */
 export const DISCOVERY_PORT = 5555
 export const PROBE = Buffer.from('\x01discover', 'latin1')
 
-export interface GestaltInfo {
-	mac?: string
-	productCode?: string
-	deviceName?: string
-}
+/**
+ * First 3 bytes of the MAC address of PRO controllers. Taken from Twinkly's OSC guide example
+ * (30:49:50:A0:30:EC) and confirmed on one real PRO controller, so other PRO units may differ.
+ */
+export const PRO_OUI = '304950'
+
+export type DeviceFamily = 'pro' | 'consumer' | 'unknown'
 
 export interface DiscoveredDevice {
 	address: string
-	/** Controller name from byte 6 of a valid reply, if present */
+	family: DeviceFamily
+	/** Controller name from byte 6 of the reply, if present */
 	name?: string
+	/** Best-guess OSC device ID (Pro only; assumes the OUI above) */
+	suggestedId?: string
 	text: string
 	hex: string
-	gestalt?: GestaltInfo
 }
 
 /** `ip | ~netmask` for IPv4 dotted strings, or null if either is malformed. */
@@ -49,26 +58,52 @@ export function interfaceBroadcastAddresses(): string[] {
 	return [...out]
 }
 
-export type ParsedReply = { kind: 'echo' } | { kind: 'ok'; name: string } | { kind: 'other' }
-
-/** Classify a UDP packet received while scanning (format per xLights' TwinklyOutput.cpp). */
-export function parseDiscoveryReply(msg: Buffer): ParsedReply {
-	// Our own probe echoed back: 0x01 'd' 'i' ...
-	if (msg.length >= 3 && msg[0] === 0x01 && msg[1] === 0x64 && msg[2] === 0x69) return { kind: 'echo' }
-	// Reply: 4 bytes (IP, reversed), 'O' 'K', then the NUL-terminated controller name
-	if (msg.length >= 6 && msg[4] === 0x4f && msg[5] === 0x4b) {
-		const end = msg.indexOf(0, 6)
-		return { kind: 'ok', name: printable(msg.subarray(6, end === -1 ? msg.length : end)) }
-	}
-	return { kind: 'other' }
-}
-
-/** Printable ASCII of a reply, e.g. a device name such as "Twinkly_1CC190". */
+/** Printable ASCII of a buffer, e.g. a device name such as "TwPRO_a00f6c". */
 export function printable(buf: Buffer): string {
 	return buf
 		.toString('latin1')
 		.replace(/[^\x20-\x7e]/g, '')
 		.trim()
+}
+
+export type ParsedReply = { kind: 'echo' } | { kind: 'reply'; tag: 'OK' | 'TP'; name: string } | { kind: 'other' }
+
+/** Classify a UDP packet received while scanning. */
+export function parseDiscoveryReply(msg: Buffer): ParsedReply {
+	// Our own probe echoed back: 0x01 'd' 'i' ...
+	if (msg.length >= 3 && msg[0] === 0x01 && msg[1] === 0x64 && msg[2] === 0x69) return { kind: 'echo' }
+	if (msg.length >= 6) {
+		const tag = msg.subarray(4, 6).toString('latin1')
+		if (tag === 'OK' || tag === 'TP') {
+			const end = msg.indexOf(0, 6)
+			return { kind: 'reply', tag, name: printable(msg.subarray(6, end === -1 ? msg.length : end)) }
+		}
+	}
+	return { kind: 'other' }
+}
+
+/**
+ * Best-guess OSC device ID from a Pro controller name, e.g. "TwPRO_a00f6c" -> "TwPRO304950a00f6c".
+ * Only PRO is handled; the MAC prefix for other Pro-family products isn't known.
+ */
+export function suggestDeviceId(name: string): string | undefined {
+	const m = /^TwPRO_([0-9a-f]{6})$/i.exec(name)
+	return m ? `TwPRO${PRO_OUI}${m[1].toLowerCase()}` : undefined
+}
+
+export function deviceFromReply(
+	address: string,
+	msg: Buffer,
+	parsed: Extract<ParsedReply, { kind: 'reply' }>,
+): DiscoveredDevice {
+	return {
+		address,
+		family: parsed.tag === 'TP' ? 'pro' : 'consumer',
+		name: parsed.name,
+		suggestedId: parsed.tag === 'TP' ? suggestDeviceId(parsed.name) : undefined,
+		text: printable(msg),
+		hex: msg.toString('hex'),
+	}
 }
 
 export async function scanForDevices(
@@ -107,12 +142,12 @@ export async function scanForDevices(
 		socket.on('message', (msg, rinfo) => {
 			const parsed = parseDiscoveryReply(msg)
 			if (parsed.kind === 'echo' || found.has(rinfo.address)) return
-			found.set(rinfo.address, {
-				address: rinfo.address,
-				name: parsed.kind === 'ok' ? parsed.name : undefined,
-				text: printable(msg),
-				hex: msg.toString('hex'),
-			})
+			found.set(
+				rinfo.address,
+				parsed.kind === 'reply'
+					? deviceFromReply(rinfo.address, msg, parsed)
+					: { address: rinfo.address, family: 'unknown', text: printable(msg), hex: msg.toString('hex') },
+			)
 		})
 		socket.bind(0, () => {
 			try {
@@ -128,25 +163,4 @@ export async function scanForDevices(
 			}
 		})
 	})
-}
-
-/**
- * Try the consumer-Twinkly unauthenticated `GET /xled/v1/gestalt` (HTTP, port 80).
- * Returns undefined if the device doesn't answer or the reply isn't the expected JSON.
- */
-export async function fetchGestalt(address: string, timeoutMs = 2000): Promise<GestaltInfo | undefined> {
-	try {
-		const res = await fetch(`http://${address}/xled/v1/gestalt`, { signal: AbortSignal.timeout(timeoutMs) })
-		if (!res.ok) return undefined
-		const json = (await res.json()) as Record<string, unknown>
-		const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
-		const info: GestaltInfo = {
-			mac: str(json.mac),
-			productCode: str(json.product_code),
-			deviceName: str(json.device_name),
-		}
-		return info.mac || info.productCode || info.deviceName ? info : undefined
-	} catch {
-		return undefined
-	}
 }

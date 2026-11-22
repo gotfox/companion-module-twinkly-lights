@@ -79,25 +79,23 @@ Write down: whether handles above 15 work, and whether UUIDs behave the same as 
 
 Write down: whether the playlist starts, and whether the index value changes which playlist plays. The OSC guide never explains that number, so this is the main open question.
 
-## Test 7: Experimental scan
+## Test 7: Scan
 
-1. Start a packet capture on the machine running Companion, so you can see the probe leave:
-   ```bash
-   sudo tcpdump -i any -n -X udp port 5555
-   ```
-   On Windows, use Wireshark with the capture filter `udp port 5555` instead.
-2. In Companion, press a button with **Scan network for controllers (experimental)**. Wait 5 seconds.
-3. Read the Companion module log. Look for lines starting `Reply from ...` and `device info`.
-4. Stop the capture and save the output.
+Verified on PRO hardware; repeat on any other model (PLUS, Lightwall, MAX) to see how it replies.
 
-The outcomes mean different things:
+1. In Companion, press a button with **Scan network for controllers**. Wait about 5 seconds.
+2. Read the module log. Each reply shows the IP, the type (Twinkly Pro, consumer, or unrecognised), the name and the raw hex. Pro controllers also get a suggested device ID.
+3. Compare each suggested ID with the MAC shown in the Twinkly Pro app. The name suffix should equal the last 3 bytes of the MAC and the ID should be `TwPRO` followed by the full MAC.
 
-- **Replies with `name=...`:** the controller answers the probe. Paste the log lines, including the hex.
-- **Replies without a name:** the controller answers, but in a different format. The hex will show the format.
-- **No replies, but tcpdump shows the probe going out:** Pro controllers likely don't use this protocol.
-- **No replies and nothing in tcpdump:** the probe never left the computer. Check that Companion's machine is on the same network, and note which OS and network interfaces it has.
+Write down: any controller listed as unrecognised, any Pro controller without a suggested ID (for example PLUS or Lightwall models), and any suggested ID that doesn't match the app's MAC.
 
-If the log also shows `device info: name=... mac=...`, the HTTP lookup works too. If it says no HTTP device info, that lookup doesn't apply to your controller.
+If nothing replies, capture the probe to see whether it leaves the machine:
+
+```bash
+sudo tcpdump -i any -n -X udp port 5555
+```
+
+On Windows, use Wireshark with the capture filter `udp port 5555`.
 
 ## Test 8: Check the state tracking
 
@@ -113,6 +111,6 @@ Write down: if it changes by itself, since that would mean the controller does r
 Trimmed to the relevant lines:
 
 - your model, and which of Tests 1-6 passed or failed
-- the Companion log lines from Test 7, plus any hex
+- the Companion log lines from Test 7, including any unrecognised replies and their hex
 - the answers to the four open questions: the `disabled` brightness value, the handle range, the playlist index, and which broadcast address worked
 - the tcpdump output from Test 7 if the scan found nothing
