@@ -5,12 +5,12 @@ import os from 'node:os'
  * EXPERIMENTAL / UNVERIFIED for Twinkly Pro.
  *
  * Twinkly Pro's documentation describes no discovery mechanism. Consumer Twinkly lights answer a UDP
- * broadcast on port 5555 (see https://github.com/twinklyjs/twinklyjs and xled-docs). Published sources
- * disagree on whether the probe's first byte is 0x01 or the ASCII character "1", so both are sent.
- * Replies are returned raw so the real behaviour of Pro controllers can be inspected.
+ * broadcast on port 5555 (see https://github.com/twinklyjs/twinklyjs and the xLights source, which
+ * sends a 0x01 byte followed by "discover"). A valid reply has "OK" at bytes 4-5 and the controller
+ * name from byte 6. Raw hex is kept so the real behaviour of Pro controllers can be inspected.
  */
 export const DISCOVERY_PORT = 5555
-export const PROBES: Buffer[] = [Buffer.from('\x01discover', 'latin1'), Buffer.from('1discover', 'latin1')]
+export const PROBE = Buffer.from('\x01discover', 'latin1')
 
 export interface GestaltInfo {
 	mac?: string
@@ -20,6 +20,8 @@ export interface GestaltInfo {
 
 export interface DiscoveredDevice {
 	address: string
+	/** Controller name from byte 6 of a valid reply, if present */
+	name?: string
 	text: string
 	hex: string
 	gestalt?: GestaltInfo
@@ -45,6 +47,20 @@ export function interfaceBroadcastAddresses(): string[] {
 		}
 	}
 	return [...out]
+}
+
+export type ParsedReply = { kind: 'echo' } | { kind: 'ok'; name: string } | { kind: 'other' }
+
+/** Classify a UDP packet received while scanning (format per xLights' TwinklyOutput.cpp). */
+export function parseDiscoveryReply(msg: Buffer): ParsedReply {
+	// Our own probe echoed back: 0x01 'd' 'i' ...
+	if (msg.length >= 3 && msg[0] === 0x01 && msg[1] === 0x64 && msg[2] === 0x69) return { kind: 'echo' }
+	// Reply: 4 bytes (IP, reversed), 'O' 'K', then the NUL-terminated controller name
+	if (msg.length >= 6 && msg[4] === 0x4f && msg[5] === 0x4b) {
+		const end = msg.indexOf(0, 6)
+		return { kind: 'ok', name: printable(msg.subarray(6, end === -1 ? msg.length : end)) }
+	}
+	return { kind: 'other' }
 }
 
 /** Printable ASCII of a reply, e.g. a device name such as "Twinkly_1CC190". */
@@ -89,9 +105,14 @@ export async function scanForDevices(
 
 		socket.on('error', fail)
 		socket.on('message', (msg, rinfo) => {
-			if (!found.has(rinfo.address)) {
-				found.set(rinfo.address, { address: rinfo.address, text: printable(msg), hex: msg.toString('hex') })
-			}
+			const parsed = parseDiscoveryReply(msg)
+			if (parsed.kind === 'echo' || found.has(rinfo.address)) return
+			found.set(rinfo.address, {
+				address: rinfo.address,
+				name: parsed.kind === 'ok' ? parsed.name : undefined,
+				text: printable(msg),
+				hex: msg.toString('hex'),
+			})
 		})
 		socket.bind(0, () => {
 			try {
@@ -101,11 +122,9 @@ export async function scanForDevices(
 				return
 			}
 			for (const target of targets) {
-				for (const probe of PROBES) {
-					socket.send(probe, DISCOVERY_PORT, target, (err) => {
-						if (err) fail(err)
-					})
-				}
+				socket.send(PROBE, DISCOVERY_PORT, target, (err) => {
+					if (err) fail(err)
+				})
 			}
 		})
 	})

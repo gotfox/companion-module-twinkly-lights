@@ -215,7 +215,7 @@ export function UpdateActions(self: ModuleInstance): void {
 		scan: {
 			name: 'Scan network for controllers (experimental)',
 			description:
-				'UNVERIFIED. Twinkly Pro documents no discovery. Broadcasts consumer-Twinkly style probes on UDP 5555 to every network interface, then tries an unauthenticated HTTP device-info lookup on each reply. Results go to the module log. It may find nothing.',
+				'UNVERIFIED. Twinkly Pro documents no discovery. Broadcasts a consumer-Twinkly style probe on UDP 5555 to every network interface, then tries an unauthenticated HTTP device-info lookup on each reply. Results go to the module log. It may find nothing.',
 			options: [],
 			callback: async () => {
 				self.log('info', 'Scanning for controllers on UDP 5555 (experimental)...')
@@ -230,7 +230,10 @@ export function UpdateActions(self: ModuleInstance): void {
 						}),
 					)
 					for (const d of found) {
-						self.log('info', `Reply from ${d.address}: "${d.text}" (hex ${d.hex})`)
+						self.log(
+							'info',
+							`Reply from ${d.address}: name=${d.name ?? '(not in expected OK format)'} text="${d.text}" (hex ${d.hex})`,
+						)
 						const g = d.gestalt
 						if (g?.mac) {
 							const mac = normaliseMac(g.mac)

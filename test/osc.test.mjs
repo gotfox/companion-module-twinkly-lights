@@ -55,3 +55,17 @@ test('computes broadcast addresses', async () => {
 	assert.equal(broadcastAddress('bad', '255.255.255.0'), null)
 	assert.equal(printable(Buffer.from([0xc0, 0xa8, 0, 1, 0x4f, 0x4b, 0x54, 0x77])), 'OKTw')
 })
+
+test('parses discovery replies (xLights format)', async () => {
+	const { parseDiscoveryReply, PROBE } = await import('../dist/discovery.js')
+	assert.deepEqual([...PROBE], [0x01, ...Buffer.from('discover')])
+	assert.equal(parseDiscoveryReply(PROBE).kind, 'echo')
+	const ok = Buffer.concat([
+		Buffer.from([0x68, 0x00, 0xa8, 0xc0]),
+		Buffer.from('OK'),
+		Buffer.from('Twinkly_1CC190\0junk'),
+	])
+	assert.deepEqual(parseDiscoveryReply(ok), { kind: 'ok', name: 'Twinkly_1CC190' })
+	assert.equal(parseDiscoveryReply(Buffer.from('hello')).kind, 'other')
+	assert.deepEqual(parseDiscoveryReply(Buffer.concat([Buffer.alloc(4), Buffer.from('OK')])), { kind: 'ok', name: '' })
+})

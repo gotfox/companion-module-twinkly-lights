@@ -43,7 +43,7 @@ Twinkly Pro documents no OSC replies. Connection status only means Companion can
 
 There is no documented discovery mechanism. Use the controller IP, or a broadcast address with a wildcard target.
 
-The experimental **Scan** action is based on unofficial docs for consumer Twinkly lights and is unverified on Pro hardware. It broadcasts probes on UDP 5555 to every network interface (both known first-byte variants), then tries an unauthenticated HTTP lookup (`/xled/v1/gestalt`) on each reply to read the MAC address. Results, including raw reply bytes, are written to the module log, plus candidate device IDs (`TwPRO<mac>` / `TwPLUS<mac>`). It may find nothing.
+The experimental **Scan** action is based on unofficial docs for consumer Twinkly lights and is unverified on Pro hardware. It broadcasts the probe used by xLights (`0x01` + `discover`) on UDP 5555 to every network interface, parses replies in the consumer format (`OK` at bytes 4-5, controller name from byte 6), then tries an unauthenticated HTTP lookup (`/xled/v1/gestalt`) on each reply to read the MAC address. Results, including raw reply bytes, are written to the module log, plus candidate device IDs (`TwPRO<mac>` / `TwPLUS<mac>`). It may find nothing.
 
 ### Notes on ambiguous parts of the guide
 
