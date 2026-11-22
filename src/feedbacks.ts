@@ -1,42 +1,59 @@
 import type ModuleInstance from './main.js'
 
 export type FeedbacksSchema = {
-	sample_feedback: {
+	mode_is: {
 		type: 'boolean'
-		options: {
-			num: number
-		}
+		options: { mode: string }
+	}
+	effect_is: {
+		type: 'boolean'
+		options: { effect: string }
+	}
+	brightness_is: {
+		type: 'boolean'
+		options: { value: number }
 	}
 }
 
 export function UpdateFeedbacks(self: ModuleInstance): void {
 	self.setFeedbackDefinitions({
-		sample_feedback: {
-			name: 'Example Feedback',
+		mode_is: {
+			name: 'Assumed mode matches',
+			description: 'True if the last command sent by Companion set this mode. Controllers do not report state.',
 			type: 'boolean',
-			defaultStyle: {
-				bgcolor: 0xff0000,
-				color: 0x000000,
-			},
+			defaultStyle: { bgcolor: 0x006600, color: 0xffffff },
 			options: [
 				{
-					id: 'num',
-					type: 'number',
-					label: 'Test',
-					default: 5,
-					min: 0,
-					max: 10,
-					clampValues: true, // If value is outside the min/max, clamp it to the min/max instead of rejecting the input
+					id: 'mode',
+					type: 'dropdown',
+					label: 'Mode',
+					default: 'movie',
+					choices: [
+						{ id: 'off', label: 'Off' },
+						{ id: 'movie', label: 'Movie (effect)' },
+						{ id: 'playlist', label: 'Playlist' },
+					],
 				},
 			],
-			callback: (feedback) => {
-				console.log('Hello world!', feedback.options.num)
-				if (feedback.options.num > 5) {
-					return true
-				} else {
-					return false
-				}
-			},
+			callback: (feedback) => self.state.mode === feedback.options.mode,
+		},
+		effect_is: {
+			name: 'Assumed effect matches',
+			description: 'True if the last movie command used this handle number or UUID.',
+			type: 'boolean',
+			defaultStyle: { bgcolor: 0x006600, color: 0xffffff },
+			options: [{ id: 'effect', type: 'textinput', label: 'Effect handle or UUID', default: '0', useVariables: true }],
+			callback: (feedback) =>
+				self.state.mode === 'movie' &&
+				self.state.effect.toLowerCase() === String(feedback.options.effect).trim().toLowerCase(),
+		},
+		brightness_is: {
+			name: 'Assumed brightness matches',
+			description: 'True if the tracked brightness equals this value.',
+			type: 'boolean',
+			defaultStyle: { bgcolor: 0x006600, color: 0xffffff },
+			options: [{ id: 'value', type: 'number', label: 'Brightness (%)', default: 100, min: 0, max: 100 }],
+			callback: (feedback) => self.state.brightness === feedback.options.value,
 		},
 	})
 }
