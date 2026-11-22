@@ -16,3 +16,5 @@ yarn package    # build a distributable .tgz
 ```
 
 Protocol reference: <https://help.twinklypro.com/guides/osc/>
+
+Testing against real hardware: see [TESTING.md](./TESTING.md).
