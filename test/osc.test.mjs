@@ -56,16 +56,27 @@ test('computes broadcast addresses', async () => {
 	assert.equal(printable(Buffer.from([0xc0, 0xa8, 0, 1, 0x4f, 0x4b, 0x54, 0x77])), 'OKTw')
 })
 
-test('parses discovery replies (xLights format)', async () => {
-	const { parseDiscoveryReply, PROBE } = await import('../dist/discovery.js')
+test('parses discovery replies captured from real controllers', async () => {
+	const { parseDiscoveryReply, deviceFromReply, suggestDeviceId, PROBE } = await import('../dist/discovery.js')
 	assert.deepEqual([...PROBE], [0x01, ...Buffer.from('discover')])
 	assert.equal(parseDiscoveryReply(PROBE).kind, 'echo')
-	const ok = Buffer.concat([
-		Buffer.from([0x68, 0x00, 0xa8, 0xc0]),
-		Buffer.from('OK'),
-		Buffer.from('Twinkly_1CC190\0junk'),
-	])
-	assert.deepEqual(parseDiscoveryReply(ok), { kind: 'ok', name: 'Twinkly_1CC190' })
+
+	// Twinkly Pro (PRO) reply: tag "TP", normal-order IP bytes
+	const pro = Buffer.from('c0a807bb5450547750524f5f61303066366300', 'hex')
+	assert.deepEqual(parseDiscoveryReply(pro), { kind: 'reply', tag: 'TP', name: 'TwPRO_a00f6c' })
+	const proDevice = deviceFromReply('192.168.7.187', pro, parseDiscoveryReply(pro))
+	assert.equal(proDevice.family, 'pro')
+	// Verified against the MAC shown in the Twinkly Pro app for this controller
+	assert.equal(proDevice.suggestedId, 'TwPRO304950a00f6c')
+
+	// Consumer Twinkly reply: tag "OK", reversed IP bytes
+	const retail = Buffer.from('fd07a8c04f4b5477696e6b6c795f443438303744' + '00', 'hex')
+	assert.deepEqual(parseDiscoveryReply(retail), { kind: 'reply', tag: 'OK', name: 'Twinkly_D4807D' })
+	const retailDevice = deviceFromReply('192.168.7.253', retail, parseDiscoveryReply(retail))
+	assert.equal(retailDevice.family, 'consumer')
+	assert.equal(retailDevice.suggestedId, undefined)
+
 	assert.equal(parseDiscoveryReply(Buffer.from('hello')).kind, 'other')
-	assert.deepEqual(parseDiscoveryReply(Buffer.concat([Buffer.alloc(4), Buffer.from('OK')])), { kind: 'ok', name: '' })
+	assert.equal(suggestDeviceId('TwPLUS_aabbcc'), undefined)
+	assert.equal(suggestDeviceId('TwPRO_A01029'), 'TwPRO304950a01029')
 })

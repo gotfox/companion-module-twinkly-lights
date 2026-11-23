@@ -1,8 +1,8 @@
 import type { SomeCompanionActionInputField } from '@companion-module/base'
 import type ModuleInstance from './main.js'
 import { oscInt, oscString } from './osc.js'
-import { normaliseMac, PRODUCT_CHOICES, TARGET_MODE_CHOICES } from './twinkly.js'
-import { fetchGestalt, scanForDevices } from './discovery.js'
+import { PRODUCT_CHOICES, TARGET_MODE_CHOICES } from './twinkly.js'
+import { PRO_OUI, scanForDevices } from './discovery.js'
 
 type TargetOptions = { target: string; productType: string; mac: string }
 
@@ -213,43 +213,34 @@ export function UpdateActions(self: ModuleInstance): void {
 		},
 
 		scan: {
-			name: 'Scan network for controllers (experimental)',
+			name: 'Scan network for controllers',
 			description:
-				'UNVERIFIED. Twinkly Pro documents no discovery. Broadcasts a consumer-Twinkly style probe on UDP 5555 to every network interface, then tries an unauthenticated HTTP device-info lookup on each reply. Results go to the module log. It may find nothing.',
+				'Broadcasts a discovery probe on UDP 5555 to every network interface and logs the controllers that reply, with a suggested OSC device ID for Pro controllers. Twinkly Pro does not document this; it was verified on PRO controllers only. Consumer Twinkly lights also reply but are not OSC targets.',
 			options: [],
 			callback: async () => {
-				self.log('info', 'Scanning for controllers on UDP 5555 (experimental)...')
+				self.log('info', 'Scanning for controllers on UDP 5555...')
 				try {
 					const found = await scanForDevices(self.config.host)
-					if (found.length === 0) {
-						self.log('info', 'Scan finished: no replies. Pro controllers may not support this probe.')
-					}
-					await Promise.all(
-						found.map(async (d) => {
-							d.gestalt = await fetchGestalt(d.address)
-						}),
-					)
+					const pro = found.filter((d) => d.family === 'pro')
+					if (found.length === 0) self.log('info', 'Scan finished: no replies.')
 					for (const d of found) {
-						self.log(
-							'info',
-							`Reply from ${d.address}: name=${d.name ?? '(not in expected OK format)'} text="${d.text}" (hex ${d.hex})`,
-						)
-						const g = d.gestalt
-						if (g?.mac) {
-							const mac = normaliseMac(g.mac)
+						const label =
+							d.family === 'pro'
+								? 'Twinkly Pro'
+								: d.family === 'consumer'
+									? 'consumer Twinkly (not an OSC target)'
+									: 'unrecognised'
+						self.log('info', `${d.address}: ${label} name=${d.name ?? '?'} (hex ${d.hex})`)
+						if (d.suggestedId) {
 							self.log(
 								'info',
-								`  ${d.address} device info: name=${g.deviceName ?? '?'} product=${g.productCode ?? '?'} mac=${g.mac}. ` +
-									`Candidate device IDs: TwPRO${mac} or TwPLUS${mac} (which prefix applies depends on the model)`,
+								`  suggested device ID: ${d.suggestedId} (name suffix = last 3 MAC bytes, prefix ${PRO_OUI} assumed; check against the MAC in the app)`,
 							)
-						} else {
-							self.log('info', `  ${d.address}: no HTTP device info (/xled/v1/gestalt) available`)
 						}
 					}
+					self.log('info', `Scan finished: ${pro.length} Pro controller(s), ${found.length - pro.length} other.`)
 					self.setVariableValues({
-						discovered_devices: found
-							.map((d) => (d.gestalt?.mac ? `${d.address} (${d.gestalt.mac})` : d.address))
-							.join(', '),
+						discovered_devices: pro.map((d) => `${d.address} ${d.suggestedId ?? d.name ?? ''}`.trim()).join(', '),
 					})
 				} catch (e) {
 					self.log('error', `Scan failed: ${String(e)}`)

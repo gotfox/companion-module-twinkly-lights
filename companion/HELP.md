@@ -41,9 +41,13 @@ Twinkly Pro documents no OSC replies. Connection status only means Companion can
 
 ### Discovery
 
-There is no documented discovery mechanism. Use the controller IP, or a broadcast address with a wildcard target.
+Twinkly doesn't document discovery, but Pro controllers answer the same UDP broadcast probe (port 5555) as consumer Twinkly lights. The **Scan network for controllers** action broadcasts it on every network interface and writes the replies to the module log:
 
-The experimental **Scan** action is based on unofficial docs for consumer Twinkly lights and is unverified on Pro hardware. It broadcasts the probe used by xLights (`0x01` + `discover`) on UDP 5555 to every network interface, parses replies in the consumer format (`OK` at bytes 4-5, controller name from byte 6), then tries an unauthenticated HTTP lookup (`/xled/v1/gestalt`) on each reply to read the MAC address. Results, including raw reply bytes, are written to the module log, plus candidate device IDs (`TwPRO<mac>` / `TwPLUS<mac>`). It may find nothing.
+- Twinkly Pro controllers reply with a name like `TwPRO_a00f6c`. The suffix is the last 3 bytes of the controller's MAC address. The log shows a **suggested device ID** (e.g. `TwPRO304950a00f6c`). The `304950` prefix is assumed from Twinkly's OSC guide and was confirmed on one PRO controller, so check the suggestion against the MAC in the Twinkly Pro app before relying on it.
+- Consumer Twinkly lights (`Twinkly_XXXXXX`) also reply. They are not OSC targets and are only listed for information.
+- Scanning only finds controllers on subnets that Companion's machine has a network interface on, and only where broadcast is allowed.
+
+The scan was verified on PRO controllers only. You don't need it to use the module: use the controller IP or a broadcast address with a wildcard target.
 
 ### Notes on ambiguous parts of the guide
 
