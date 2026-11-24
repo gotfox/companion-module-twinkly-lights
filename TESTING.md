@@ -188,6 +188,30 @@ Devices: Squares (TWQ064STW, firmware family T) and Line (TWL100STW, family S). 
 | Brightness      | `POST led/out/brightness`                                                                    | Pass. Line dimmed to 10%.                                                                                    |
 | Module client   | `detectFamily` and every command above                                                       | Pass on Squares and Line, and on Tree Back for Pro.                                                          |
 
+### 2026-11-23: Art-Net, PRO (TWPRO1500ETHP), firmware 4.1.0
+
+Tried because another user reported Art-Net problems from an MA Lighting grandMA2 console after 4.1.0, and to judge whether Art-Net is worth adding to the module. Twinkly's [DMX / Art-Net guide](https://help.twinklypro.com/guides/dmx-artnet/) describes ten channels per fixture (brightness, mode, R, G, B, W, effect, playlist, reserved, control).
+
+Setup: Art-Net was enabled in the Twinkly Pro app on the group master (`192.168.7.187`) only, with Net 0, Sub-Net 0, Universe 0, DMX address 1. The model is fixed to Basic 8-bit on PRO. DHCP stayed on. The slave did not have Art-Net enabled. Frames were hand-built `ArtDmx` packets (about 40 per second for 3 seconds) sent by unicast to the master.
+
+| Check                            | Result                                                                                                                                                                                                                                                         |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Enabling Art-Net                 | Pass. `GET gestalt` then reports `artnet_en: true`. The setting can only be changed in the app.                                                                                                                                                                |
+| Color mode (ch1-5)               | Pass. `255,0,255,0,0,0,0,0,0,0` turned both trees red, and they stayed red after the frames stopped.                                                                                                                                                           |
+| Group relay                      | Pass. The slave followed the master with Art-Net disabled on the slave.                                                                                                                                                                                        |
+| Brightness (ch1)                 | Pass. `64` dimmed to about 25%.                                                                                                                                                                                                                                |
+| Effect select (ch2 = 64, ch7)    | Pass. `ch7 = 0` played the first effect and `ch7 = 16` the third.                                                                                                                                                                                             |
+| Playlist select (ch2 = 128, ch8) | Pass. `ch8 = 0` and `ch8 = 32` selected the first and second playlists.                                                                                                                                                                                        |
+| Off / on (ch10)                  | Pass. `255` turned the lights off and `0` brought them back.                                                                                                                                                                                                   |
+| REST state after Art-Net         | Pass. `application/mode` followed every change (movie, playlist name, off). `led/out/brightness` followed too: `enabled` with a value near the percentage below full, and `disabled` at full, keeping the stored value.                                         |
+| **REST session after Art-Net**   | **Every Art-Net burst invalidated the existing REST login token.** The next call returned `401` with `result.code` 2401. A new login worked each time, and a token with no Art-Net traffic stayed valid. Only short bursts were tested, not a continuous stream. |
+
+**Broadcast:** Pass. `ArtDmx` color frames sent to the subnet broadcast (`192.168.7.255`) and to `255.255.255.255` both reached the master and the slave (blue, then green). The Deck, which has Art-Net off, did not react to either.
+
+**ArtPoll:** No reply. With Art-Net enabled, `ArtPoll` packets sent by unicast, to the subnet broadcast (`192.168.7.255`) and to `255.255.255.255` got no `ArtPollReply` from the master or from anything else, seen in a `tcpdump -i any udp port 6454` capture on the sending Mac. A console or tool that finds Art-Net nodes by polling will not list the controller. Consoles that send `ArtDmx` to a configured IP or by broadcast don't need a reply.
+
+Conclusion: Art-Net is not broken by 4.1.0 for direct, unicast, Net 0 / Sub-Net 0 / Universe 0 control, which leaves the console configuration as the likely cause of the grandMA2 report.
+
 ## Open items
 
 As of 2026-11-23, after the hardware tests above.
