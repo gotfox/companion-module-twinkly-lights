@@ -1,4 +1,6 @@
 import type ModuleInstance from './main.js'
+import type { PlaylistInfo } from './rest-parse.js'
+import type { AssumedState } from './state.js'
 
 export type FeedbacksSchema = {
 	mode_is: {
@@ -13,13 +15,33 @@ export type FeedbacksSchema = {
 		type: 'boolean'
 		options: { value: number }
 	}
+	playlist_is: {
+		type: 'boolean'
+		options: { index: number }
+	}
+}
+
+/**
+ * Is the playlist at `index` the one playing? Matched by UUID, so two playlists with the same name are
+ * told apart; by name only when the UUID isn't known (e.g. right after a command, before state is read).
+ */
+export function playlistMatches(
+	state: Pick<AssumedState, 'mode' | 'playlistName' | 'playlistUuid'>,
+	playlists: readonly PlaylistInfo[],
+	index: number,
+): boolean {
+	const wanted = playlists.find((p) => p.index === index)
+	if (state.mode !== 'playlist' || !wanted) return false
+	if (state.playlistUuid) return wanted.uuid.toLowerCase() === state.playlistUuid.toLowerCase()
+	return wanted.name === state.playlistName
 }
 
 export function UpdateFeedbacks(self: ModuleInstance): void {
 	self.setFeedbackDefinitions({
 		mode_is: {
-			name: 'Assumed mode matches',
-			description: 'True if the last command sent by Companion set this mode. Controllers do not report state.',
+			name: 'Mode matches',
+			description:
+				'True if the controller is in this mode. Read from the controller when state reading is on; otherwise the last mode Companion sent.',
 			type: 'boolean',
 			defaultStyle: { bgcolor: 0x006600, color: 0xffffff },
 			options: [
@@ -32,24 +54,42 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 						{ id: 'off', label: 'Off' },
 						{ id: 'movie', label: 'Movie (effect)' },
 						{ id: 'playlist', label: 'Playlist' },
+						{ id: 'effect', label: 'Built-in effect (Twinkly)' },
+						{ id: 'color', label: 'Solid colour (Twinkly)' },
 					],
 				},
 			],
 			callback: (feedback) => self.state.mode === feedback.options.mode,
 		},
 		effect_is: {
-			name: 'Assumed effect matches',
-			description: 'True if the last movie command used this handle number or UUID.',
+			name: 'Effect matches',
+			description:
+				'True if this effect is playing (handle, UUID or name; includes effects played by a playlist when state reading is on).',
 			type: 'boolean',
 			defaultStyle: { bgcolor: 0x006600, color: 0xffffff },
-			options: [{ id: 'effect', type: 'textinput', label: 'Effect handle or UUID', default: '0', useVariables: true }],
+			options: [
+				{ id: 'effect', type: 'textinput', label: 'Effect handle, UUID or name', default: '0', useVariables: true },
+			],
+			callback: (feedback) => {
+				const want = String(feedback.options.effect).trim().toLowerCase()
+				const s = self.state
+				const playing = s.mode === 'movie' || (s.mode === 'playlist' && s.source === 'controller')
+				return playing && want !== '' && (s.effect.toLowerCase() === want || s.effectName.toLowerCase() === want)
+			},
+		},
+		playlist_is: {
+			name: 'Playlist matches',
+			description:
+				'True if this playlist is playing (by index, 0 = first). Needs a controller IP, because the playlist is identified by name.',
+			type: 'boolean',
+			defaultStyle: { bgcolor: 0x006600, color: 0xffffff },
+			options: [{ id: 'index', type: 'number', label: 'Playlist index', default: 0, min: 0, max: 255 }],
 			callback: (feedback) =>
-				self.state.mode === 'movie' &&
-				self.state.effect.toLowerCase() === String(feedback.options.effect).trim().toLowerCase(),
+				playlistMatches(self.state, self.content?.playlists ?? [], Number(feedback.options.index)),
 		},
 		brightness_is: {
-			name: 'Assumed brightness matches',
-			description: 'True if the tracked brightness equals this value.',
+			name: 'Brightness matches',
+			description: 'True if the brightness equals this value (read from the controller when state reading is on).',
 			type: 'boolean',
 			defaultStyle: { bgcolor: 0x006600, color: 0xffffff },
 			options: [{ id: 'value', type: 'number', label: 'Brightness (%)', default: 100, min: 0, max: 100 }],
