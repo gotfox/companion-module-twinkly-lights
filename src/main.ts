@@ -199,8 +199,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		await live.start()
 		// Without polling nothing else checks the controller, so judge REST by whether the lists loaded
 		if (generation === this.generation && !live.polling && this.config.method === 'rest') {
-			const c = live.content
-			const reachable = c.movies.length > 0 || c.playlists.length > 0 || c.builtinEffects > 0
+			// A device with nothing uploaded still answers with empty lists, so judge by the answer, not the content
+			const reachable = live.content.reachable
 			this.setStatus(
 				reachable ? InstanceStatus.Ok : InstanceStatus.ConnectionFailure,
 				reachable ? undefined : 'Could not read from the controller',

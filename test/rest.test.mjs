@@ -332,3 +332,25 @@ test('REST controller passes handles straight through on consumer lights', async
 	assert.equal(await ctl.builtinEffect({}, 2), true)
 	assert.deepEqual(sent, [{ handle: 3 }, { builtin: 2 }])
 })
+
+test('content refresh counts a controller with empty lists as reachable, and one that fails as not', async () => {
+	const { ContentCache } = await import('../dist/controller.js')
+	const empty = {
+		getMovies: async () => [],
+		getPlaylists: async () => [],
+		getBuiltinEffectCount: async () => 0, // Pro answers 0 without asking the device
+	}
+	const ok = new ContentCache(empty)
+	assert.equal(ok.reachable, false, 'unknown before the first refresh')
+	await ok.refresh()
+	assert.equal(ok.reachable, true, 'empty lists are a valid answer')
+
+	const down = {
+		getMovies: async () => Promise.reject(new Error('timeout')),
+		getPlaylists: async () => Promise.reject(new Error('timeout')),
+		getBuiltinEffectCount: async () => 0,
+	}
+	const failed = new ContentCache(down)
+	await assert.rejects(failed.refresh())
+	assert.equal(failed.reachable, false, 'the built-in count alone must not count as a reply')
+})

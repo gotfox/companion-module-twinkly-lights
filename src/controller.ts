@@ -101,6 +101,11 @@ export class ContentCache {
 	playlists: PlaylistInfo[] = []
 	/** Consumer lights only */
 	builtinEffects = 0
+	/**
+	 * Whether the last refresh got an answer from the device (empty lists count). The built-in effect
+	 * count doesn't: on Pro it is 0 without asking the device.
+	 */
+	reachable = false
 	constructor(private readonly client: TwinklyRestClient) {}
 
 	/**
@@ -116,7 +121,8 @@ export class ContentCache {
 		if (movies.status === 'fulfilled') this.movies = movies.value
 		if (playlists.status === 'fulfilled') this.playlists = playlists.value
 		if (builtin.status === 'fulfilled') this.builtinEffects = builtin.value
-		if (movies.status === 'rejected' && playlists.status === 'rejected') throw movies.reason
+		this.reachable = movies.status === 'fulfilled' || playlists.status === 'fulfilled'
+		if (!this.reachable) throw movies.status === 'rejected' ? movies.reason : new Error('no reply')
 	}
 
 	/** Changes when the effect list changes, so dropdowns are only rebuilt when needed. */
