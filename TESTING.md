@@ -187,3 +187,33 @@ Devices: Squares (TWQ064STW, firmware family T) and Line (TWL100STW, family S). 
 | Built-in effect | `POST led/effects/current {"effect_id": n}`, then `led/mode {"mode":"effect"}`               | Pass. Line has 5 built-in effects and Squares has 1.                                                         |
 | Brightness      | `POST led/out/brightness`                                                                    | Pass. Line dimmed to 10%.                                                                                    |
 | Module client   | `detectFamily` and every command above                                                       | Pass on Squares and Line, and on Tree Back for Pro.                                                          |
+
+## Open items
+
+As of 2026-11-23, after the hardware tests above.
+
+### Waiting on Twinkly
+
+- **OSC brightness on PRO firmware 4.1.0** (Test 4). Ignored in every form tested, including the OSC guide's own `oscsend` example, while REST brightness works. A report for Twinkly support is drafted (kept outside the repo). Re-run Test 4 after any firmware update.
+- **Value to send with `disabled`** in `led/brightness`. The OSC guide doesn't say. The module sends `disabled A 100`. Of the four open questions in "What to report", this is the only one left: the handle range, the playlist index and broadcast are answered.
+
+### Not yet tested on hardware
+
+- **PLUS, Lightwall and MAX models** (any method). To check on each:
+  - the OSC device ID prefix (`TwPLUS` for PLUS and Lightwall is assumed from the guide)
+  - whether the MAC starts with `304950` (only confirmed on PRO)
+  - the name in the discovery reply, and whether a suggested ID can be built from it
+  - whether `/xled/v2/` REST works, and what gestalt reports
+- **Other Twinkly (non-Pro) models and firmware.** Only firmware 2.11.0 (families T and S) has been tested. Older lights may differ.
+- **Pro firmware other than 4.1.0.** Nothing in Twinkly's OSC guide covers the `/xled/v2/` REST API, so check REST after any firmware update.
+- **Token expiry.** A REST login lasts 4 hours. Logging in again after a 401 is covered by unit tests but hasn't been seen on a device. A connection left running for more than 4 hours would show it.
+- **A group whose master is offline.** Discovery should list the slave with a warning. Covered by unit tests only.
+- **Following a device after DHCP gives it a new IP.** Covered by unit tests only.
+- **Discovery across subnets or VLANs.** Only one /22 network has been tested. The scan only reaches networks this computer is on.
+
+### Known limitations
+
+- **No state from slaves.** A group slave doesn't report the group's playlist, so state must be read from the master.
+- **Built-in effects aren't read back.** When a Twinkly light is in `effect` mode, the module doesn't read which built-in effect is playing (`led/effects/current` isn't polled).
+- **The Effect matches feedback accepts a handle, UUID or name.** An effect named like a number (e.g. "3") can collide with handle 3.
+- **Art-Net isn't implemented.** The controllers report `artnet_en`, and Art-Net channel 1 is brightness. It could be a third control method, but needs a fixed controller IP and Art-Net enabled in the app.
