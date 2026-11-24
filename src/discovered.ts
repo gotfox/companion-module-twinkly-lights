@@ -89,6 +89,19 @@ function commandTarget(device: DiscoveredController, list: readonly DiscoveredCo
 }
 
 /**
+ * OSC target for a chosen device. With a known MAC, address that controller's own ID. Otherwise (e.g.
+ * PLUS or Lightwall, whose ID prefix isn't confirmed) use the wildcard: OSC goes to this device's IP
+ * only, so `*` still reaches just this device. A stale ID from a previously chosen device is never kept.
+ */
+function oscTarget(target: DiscoveredController): Pick<ModuleConfig, 'targetMode' | 'mac'> & {
+	productType?: ModuleConfig['productType']
+} {
+	if (target.family !== 'pro') return { targetMode: 'all', mac: '' }
+	if (target.mac) return { targetMode: 'device', productType: 'TwPRO', mac: target.mac }
+	return { targetMode: 'all', mac: '' }
+}
+
+/**
  * The config that follows from the selected discovered device, or null if nothing needs to change
  * (manual entry, device not found, or already applied). Never mutates its input.
  */
@@ -112,9 +125,7 @@ export function applyDiscoveredSelection(
 		family: target.family,
 		// Consumer lights have no OSC; Pro keeps whichever method the user chose
 		method: target.family === 'consumer' ? 'rest' : config.method,
-		...(target.family === 'pro' && target.mac
-			? { targetMode: 'device' as const, productType: 'TwPRO' as const, mac: target.mac }
-			: {}),
+		...oscTarget(target),
 	}
 	const changed = (Object.keys(next) as (keyof ModuleConfig)[]).some((k) => next[k] !== config[k])
 	return changed ? next : null

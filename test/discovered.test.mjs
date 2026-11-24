@@ -138,3 +138,27 @@ test('playlist feedback matches by UUID, so same-named playlists are told apart'
 	)
 	assert.equal(playlistMatches({ ...state, mode: 'movie' }, playlists, 1), false)
 })
+
+test('a Pro device without a known MAC gets the wildcard target, not the previous device ID', () => {
+	const plus = {
+		key: 'TwPLUS_abc',
+		address: '192.168.7.50',
+		family: 'pro',
+		name: 'Wall',
+		productCode: 'TWPLUS',
+		groupRole: 'none',
+		groupUid: '',
+		mac: '',
+	}
+	const before = withDefaults({
+		method: 'osc',
+		targetMode: 'device',
+		productType: 'TwPRO',
+		mac: '304950a00f6c',
+		discovered: 'TwPLUS_abc',
+	})
+	const after = applyDiscoveredSelection(before, [plus])
+	assert.equal(after.host, '192.168.7.50')
+	assert.equal(after.targetMode, 'all', 'unicast host + * reaches only this device')
+	assert.equal(after.mac, '', 'stale MAC from the previous device is cleared')
+})
