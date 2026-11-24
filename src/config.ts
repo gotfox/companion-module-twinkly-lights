@@ -111,7 +111,7 @@ export function GetConfigFields(
 				'OSC (documented by Twinkly): works with broadcast and wildcard targets, but the controller sends no replies, ' +
 				'and brightness had no effect in testing on PRO firmware 4.1.0. Enable it in the Twinkly Pro app: Devices > Object > ' +
 				'Object Information > Device Information > Advanced Configuration > OTHER > OSC. ' +
-				'REST (undocumented local API, verified on PRO firmware 4.1.0): needs the IP of one controller (for a group, the ' +
+				'REST (the local Twinkly API described at xled-docs.readthedocs.io, verified on PRO firmware 4.1.0): needs the IP of one controller (for a group, the ' +
 				'master), and supports brightness. Both methods can read the real state from the controller when a controller IP is set. ' +
 				'Twinkly lights: REST only (verified on firmware 2.11.0).',
 		},

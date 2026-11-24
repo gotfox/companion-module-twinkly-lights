@@ -1,7 +1,7 @@
 /**
  * Validation and parsing of the controller's local REST API (`/xled/v2/...`).
  *
- * Twinkly does not document this API for Pro controllers. The shapes below were captured from a
+ * The local endpoints follow the community xled-docs (Twinkly's own reference covers the cloud API). The shapes below were captured from a
  * TWPRO1500ETHP on firmware 4.1.0 and follow the consumer API described at https://xled-docs.readthedocs.io
  * (which uses `/xled/v1/`). Every response is treated as untrusted and checked before use.
  */

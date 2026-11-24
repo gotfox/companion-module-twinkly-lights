@@ -154,7 +154,7 @@ Buttons were pressed with `POST /api/location/1/<row>/<col>/press`, and the sent
 
 #### Local REST API (same day)
 
-The controllers serve an undocumented REST API on HTTP port 80 under `/xled/v2/`. It is the Twinkly API (see [xled-docs](https://xled-docs.readthedocs.io), which describes `/xled/v1/`) with a new version prefix. `/xled/v1/...` returns 404 on PRO.
+The controllers serve the Twinkly REST API on HTTP port 80 under `/xled/v2/`. Twinkly's own API reference covers its cloud form, and the local endpoints follow the community xled-docs. It is the Twinkly API (see [xled-docs](https://xled-docs.readthedocs.io), which describes `/xled/v1/`) with a new version prefix. `/xled/v1/...` returns 404 on PRO.
 
 - **No login needed:** `GET gestalt` (name, model, group role and uid, `osc_en`, `artnet_en`, `max_movies` 32, `max_playlists` 4, network). `GET status`.
 - **Login:** `POST login {"challenge": <base64 of 32 random bytes>}` returns `authentication_token`, `challenge-response` and `expires_in` 14400. Then `POST verify {"challenge-response": ...}` with header `X-Auth-Token`. The Twinkly Pro app kept working alongside it.

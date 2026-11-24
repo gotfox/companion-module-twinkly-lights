@@ -2,7 +2,7 @@
 
 Controls **Twinkly Pro** controllers (PRO, MAX, PLUS, Lightwall) and **Twinkly** lights.
 
-- Twinkly Pro: over OSC (documented at https://help.twinklypro.com/guides/osc/) or over the controller's local REST API (undocumented, verified on PRO firmware 4.1.0).
+- Twinkly Pro: over OSC (documented at https://help.twinklypro.com/guides/osc/) or over the controller's local REST API (verified on PRO firmware 4.1.0; see the API references under Notes and limits).
 - Twinkly: over the light's local REST API only (verified on firmware 2.11.0, a TWQ064STW Squares and a TWL100STW Line). Twinkly lights have no OSC.
 
 The module detects the device type itself when the address is a device IP. You can also set it by hand with **Device type**.
@@ -23,7 +23,7 @@ The module detects the device type itself when the address is a device IP. You c
 | Several controllers at once  | yes, with broadcast and wildcard targets        | no, one connection per controller or group        |
 | Off, effects, playlists      | yes                                             | yes                                               |
 | Brightness                   | ignored by the controller on PRO firmware 4.1.0 | yes                                               |
-| Documented by Twinkly        | yes                                             | no, so a firmware update could change it          |
+| Documentation                | Twinkly Pro OSC guide                           | Twinkly API references (see Notes and limits)     |
 | Needs OSC enabled in the app | yes                                             | no                                                |
 
 Whichever method you choose, the module can **read the real state** from the controller (see below) when the address is a controller IP.
@@ -96,7 +96,7 @@ The scan was verified on PRO controllers only. You don't need it to use the modu
 
 ### Notes and limits
 
-- The REST API is undocumented. It was verified on TWPRO1500ETHP with firmware 4.1.0, and a firmware update could change it. If REST stops working, switch to OSC.
+- The REST API is described in Twinkly's API reference (https://ledworks.atlassian.net/wiki/spaces/TWPUB/pages/1662222337/Twinkly+Runtime+API+Reference, for its cloud form) and in the community's xled-docs (https://xled-docs.readthedocs.io, for the local `/xled/` endpoints, which describe `/xled/v1/`). Twinkly Pro uses `/xled/v2/`, verified on TWPRO1500ETHP with firmware 4.1.0. A firmware update could change it; if REST stops working on Twinkly Pro, switch to OSC.
 - REST logs in to the controller the same way the Twinkly API does. In testing, the Twinkly Pro app kept working alongside it.
 - The integer after an OSC `playlist` command is the playlist index, with 0 as the first playlist (verified on PRO).
 - "Disable brightness filter" sends `disabled A 100`, because the guide doesn't say which value to send.
