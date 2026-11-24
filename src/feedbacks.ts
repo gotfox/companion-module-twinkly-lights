@@ -1,4 +1,6 @@
 import type ModuleInstance from './main.js'
+import type { PlaylistInfo } from './rest-parse.js'
+import type { AssumedState } from './state.js'
 
 export type FeedbacksSchema = {
 	mode_is: {
@@ -17,6 +19,21 @@ export type FeedbacksSchema = {
 		type: 'boolean'
 		options: { index: number }
 	}
+}
+
+/**
+ * Is the playlist at `index` the one playing? Matched by UUID, so two playlists with the same name are
+ * told apart; by name only when the UUID isn't known (e.g. right after a command, before state is read).
+ */
+export function playlistMatches(
+	state: Pick<AssumedState, 'mode' | 'playlistName' | 'playlistUuid'>,
+	playlists: readonly PlaylistInfo[],
+	index: number,
+): boolean {
+	const wanted = playlists.find((p) => p.index === index)
+	if (state.mode !== 'playlist' || !wanted) return false
+	if (state.playlistUuid) return wanted.uuid.toLowerCase() === state.playlistUuid.toLowerCase()
+	return wanted.name === state.playlistName
 }
 
 export function UpdateFeedbacks(self: ModuleInstance): void {
@@ -67,10 +84,8 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 			type: 'boolean',
 			defaultStyle: { bgcolor: 0x006600, color: 0xffffff },
 			options: [{ id: 'index', type: 'number', label: 'Playlist index', default: 0, min: 0, max: 255 }],
-			callback: (feedback) => {
-				const wanted = self.content?.playlists.find((p) => p.index === feedback.options.index)
-				return self.state.mode === 'playlist' && wanted !== undefined && wanted.name === self.state.playlistName
-			},
+			callback: (feedback) =>
+				playlistMatches(self.state, self.content?.playlists ?? [], Number(feedback.options.index)),
 		},
 		brightness_is: {
 			name: 'Brightness matches',

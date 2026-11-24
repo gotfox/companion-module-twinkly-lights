@@ -1,11 +1,10 @@
 import type { CompanionStaticUpgradeScript } from '@companion-module/base'
-import type { ModuleConfig } from './config.js'
+import { isUnicastHost, type ModuleConfig } from './config.js'
 
 type Script = CompanionStaticUpgradeScript<ModuleConfig>
 
 const NO_CHANGE = { updatedConfig: null, updatedActions: [], updatedFeedbacks: [] }
 
-const isIpv4Unicast = (v: string): boolean => /^\d{1,3}(\.\d{1,3}){3}$/.test(v) && !/\.255$/.test(v)
 const nonEmpty = (v: unknown): v is string => typeof v === 'string' && v !== ''
 
 /**
@@ -21,7 +20,7 @@ const splitHostField: Script = (_context, props) => {
 		updatedConfig: {
 			...config,
 			hostOsc: nonEmpty(config.hostOsc) ? config.hostOsc : host,
-			hostRest: nonEmpty(config.hostRest) ? config.hostRest : isIpv4Unicast(host) ? host : '',
+			hostRest: nonEmpty(config.hostRest) ? config.hostRest : isUnicastHost(host) ? host : '',
 		},
 	}
 }

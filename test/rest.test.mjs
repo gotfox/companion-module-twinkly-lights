@@ -264,6 +264,7 @@ test('polled state maps the effect UUID to a handle when known', async () => {
 		effect: '1',
 		effectName: 'Rotor',
 		playlistName: 'Xmas 1',
+		playlistUuid: 'cd7bb2fd-4fda-1fe3-b1a3-25f2febef01a',
 		brightness: 30,
 		brightnessFilter: 'enabled',
 	})
@@ -275,7 +276,7 @@ test('config helpers: unicast detection and defaults for old saved configs', asy
 	const { isUnicastHost, withDefaults } = await import('../dist/config.js')
 	assert.equal(isUnicastHost('192.168.7.187'), true)
 	assert.equal(isUnicastHost('255.255.255.255'), false)
-	assert.equal(isUnicastHost('192.168.7.255'), false)
+	assert.equal(isUnicastHost('192.168.7.255', ['192.168.7.255']), false, 'the local subnet broadcast')
 	assert.equal(isUnicastHost(''), false)
 	assert.equal(isUnicastHost('twinkly.local'), false)
 	const old = withDefaults({

@@ -107,3 +107,15 @@ test('upgrade script copies the old address into the new fields, once', () => {
 	assert.equal(already.updatedConfig, null)
 	assert.equal(script({ currentConfig: {} }, props(null)).updatedConfig, null)
 })
+
+test('broadcast is decided from the local network masks, not a .255 suffix', async () => {
+	const { isUnicastHost } = await import('../dist/config.js')
+	// This machine on a /22 (192.168.4.0-192.168.7.255): only .7.255 is the broadcast address
+	const local = ['192.168.7.255']
+	assert.equal(isUnicastHost('192.168.5.255', local), true, 'a valid device address inside a /22')
+	assert.equal(isUnicastHost('192.168.7.255', local), false, 'the subnet broadcast')
+	assert.equal(isUnicastHost('255.255.255.255', local), false)
+	assert.equal(isUnicastHost('10.1.2.255', local), true, 'not a broadcast of any local network')
+	assert.equal(isUnicastHost('0.0.0.0', local), false)
+	assert.equal(isUnicastHost('192.168.300.1', local), false)
+})

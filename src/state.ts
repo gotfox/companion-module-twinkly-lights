@@ -14,6 +14,8 @@ export interface AssumedState {
 	effect: string
 	effectName: string
 	playlistName: string
+	/** Identifies the playlist even when two share a name ('' when unknown) */
+	playlistUuid: string
 	brightness: number | null
 	brightnessFilter: 'unknown' | 'enabled' | 'disabled'
 }
@@ -24,6 +26,7 @@ export const initialState = (): AssumedState => ({
 	effect: '',
 	effectName: '',
 	playlistName: '',
+	playlistUuid: '',
 	brightness: null,
 	brightnessFilter: 'unknown',
 })
@@ -38,6 +41,7 @@ export function stateFromController(mode: ModeInfo, brightness: BrightnessInfo, 
 		effect: movie ? String(movie.handle) : mode.effectUuid,
 		effectName: mode.effectName,
 		playlistName: mode.playlistName,
+		playlistUuid: mode.playlistUuid,
 		brightness: brightness.value,
 		brightnessFilter: brightness.filter,
 	}

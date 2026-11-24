@@ -1,4 +1,5 @@
 import { Regex, type SomeCompanionConfigField } from '@companion-module/base'
+import { interfaceBroadcastAddresses } from './discovery.js'
 import { DEFAULT_OSC_PORT, PRODUCT_CHOICES, TARGET_MODE_CHOICES, type ProductType, type TargetMode } from './twinkly.js'
 
 export type ControlMethod = 'osc' | 'rest'
@@ -29,11 +30,18 @@ export type ModuleConfig = {
 export const DEFAULT_POLL_INTERVAL_S = 2
 export const MAX_POLL_INTERVAL_S = 60
 
-/** REST needs one controller's IP; broadcast addresses only work for OSC. Heuristic: x.x.x.255 and 0.0.0.0 are not controllers. */
-export function isUnicastHost(host: string | undefined): boolean {
+/**
+ * REST needs one device's IP; broadcast addresses only work for OSC. Broadcast is decided from this
+ * machine's own network masks, so on a /23 or wider network an address such as 192.168.5.255 is still a
+ * valid device address.
+ */
+export function isUnicastHost(
+	host: string | undefined,
+	localBroadcasts: readonly string[] = interfaceBroadcastAddresses(),
+): boolean {
 	if (!host || !/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return false
-	const octets = host.split('.').map(Number)
-	return octets.every((o) => o <= 255) && octets[3] !== 255 && host !== '0.0.0.0'
+	if (!host.split('.').every((o) => Number(o) <= 255)) return false
+	return host !== '0.0.0.0' && host !== '255.255.255.255' && !localBroadcasts.includes(host)
 }
 
 export const MIN_POLL_INTERVAL_S = 1

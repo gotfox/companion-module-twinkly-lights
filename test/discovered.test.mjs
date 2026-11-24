@@ -121,3 +121,20 @@ test('follows a device to its new IP after DHCP changes it', () => {
 	const moved = LIST.map((d) => (d.key === 'Twinkly_CE3949' ? { ...d, address: '192.168.4.77' } : d))
 	assert.equal(applyDiscoveredSelection(applied, moved).host, '192.168.4.77')
 })
+
+test('playlist feedback matches by UUID, so same-named playlists are told apart', async () => {
+	const { playlistMatches } = await import('../dist/feedbacks.js')
+	const playlists = [
+		{ index: 0, name: 'Show', uuid: 'aaa' },
+		{ index: 1, name: 'Show', uuid: 'BBB' },
+	]
+	const state = { mode: 'playlist', playlistName: 'Show', playlistUuid: 'bbb' }
+	assert.equal(playlistMatches(state, playlists, 0), false)
+	assert.equal(playlistMatches(state, playlists, 1), true, 'UUIDs compare case-insensitively')
+	assert.equal(
+		playlistMatches({ ...state, playlistUuid: '' }, playlists, 0),
+		true,
+		'falls back to name when UUID unknown',
+	)
+	assert.equal(playlistMatches({ ...state, mode: 'movie' }, playlists, 1), false)
+})

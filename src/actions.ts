@@ -65,7 +65,7 @@ export function UpdateActions(self: ModuleInstance): void {
 			options: [...targetFields],
 			callback: async ({ options }) => {
 				if (await self.controller.off(options))
-					self.setState({ mode: 'off', effect: '', effectName: '', playlistName: '' })
+					self.setState({ mode: 'off', effect: '', effectName: '', playlistName: '', playlistUuid: '' })
 			},
 		},
 
@@ -140,6 +140,7 @@ export function UpdateActions(self: ModuleInstance): void {
 					effect: known ? String(known.handle) : by === 'handle' ? String(handle) : uuid,
 					effectName: known?.name ?? '',
 					playlistName: '',
+					playlistUuid: '',
 				})
 			},
 		},
@@ -156,7 +157,13 @@ export function UpdateActions(self: ModuleInstance): void {
 				const index = clamp(options.index, 0, 255)
 				if (await self.controller.playlist(options, index)) {
 					const known = self.content?.playlists.find((p) => p.index === index)
-					self.setState({ mode: 'playlist', effect: '', effectName: '', playlistName: known?.name ?? '' })
+					self.setState({
+						mode: 'playlist',
+						effect: '',
+						effectName: '',
+						playlistName: known?.name ?? '',
+						playlistUuid: known?.uuid ?? '',
+					})
 				}
 			},
 		},
@@ -179,7 +186,13 @@ export function UpdateActions(self: ModuleInstance): void {
 			callback: async ({ options }) => {
 				const index = clamp(Number(options.index) || 0, 0, 255)
 				if (await self.controller.builtinEffect({}, index)) {
-					self.setState({ mode: 'effect', effect: '', effectName: `Built-in effect ${index}`, playlistName: '' })
+					self.setState({
+						mode: 'effect',
+						effect: '',
+						effectName: `Built-in effect ${index}`,
+						playlistName: '',
+						playlistUuid: '',
+					})
 				}
 			},
 		},
