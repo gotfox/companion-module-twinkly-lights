@@ -19,7 +19,8 @@ export const PROBE = Buffer.from('\x01discover', 'latin1')
 
 /**
  * First 3 bytes of the MAC address of PRO controllers. Taken from Twinkly's OSC guide example
- * (30:49:50:A0:30:EC) and confirmed on one real PRO controller, so other PRO units may differ.
+ * (30:49:50:A0:30:EC) and confirmed on three real PRO controllers (TWPRO1500ETHP). Other Pro-family
+ * products may use a different prefix.
  */
 export const PRO_OUI = '304950'
 
@@ -45,12 +46,20 @@ export function broadcastAddress(ip: string, netmask: string): string | null {
 	return a.map((o, i) => (o | (~m[i] & 0xff)) & 0xff).join('.')
 }
 
-/** Broadcast addresses of every non-internal IPv4 interface. */
+/**
+ * Point-to-point links such as VPN tunnels have a /32 (or /31) mask: their "broadcast address" is
+ * just their own address, so probing or offering it is pointless.
+ */
+export function hasBroadcast(netmask: string): boolean {
+	return netmask !== '255.255.255.255' && netmask !== '255.255.255.254'
+}
+
+/** Broadcast addresses of every non-internal IPv4 interface that has one. */
 export function interfaceBroadcastAddresses(): string[] {
 	const out = new Set<string>()
 	for (const infos of Object.values(os.networkInterfaces())) {
 		for (const info of infos ?? []) {
-			if (info.family !== 'IPv4' || info.internal) continue
+			if (info.family !== 'IPv4' || info.internal || !hasBroadcast(info.netmask)) continue
 			const b = broadcastAddress(info.address, info.netmask)
 			if (b) out.add(b)
 		}
@@ -106,16 +115,42 @@ export function deviceFromReply(
 	}
 }
 
-export async function scanForDevices(
-	extraBroadcast: string | undefined,
-	timeoutMs = 2500,
-): Promise<DiscoveredDevice[]> {
+export interface FailedTarget {
+	target: string
+	error: string
+}
+
+export interface ScanResult {
+	devices: DiscoveredDevice[]
+	/** Addresses the probe could not be sent to, e.g. EHOSTUNREACH for 255.255.255.255 when a VPN owns the default route */
+	failedTargets: FailedTarget[]
+}
+
+/** Addresses to probe: every interface's broadcast address, plus the configured host if it is a broadcast address. */
+export function scanTargets(extraBroadcast: string | undefined): string[] {
 	const targets = new Set(interfaceBroadcastAddresses())
 	if (extraBroadcast && /\.255$/.test(extraBroadcast)) targets.add(extraBroadcast)
 	if (targets.size === 0) targets.add('255.255.255.255')
+	return [...targets]
+}
 
+export async function scanForDevices(extraBroadcast: string | undefined, timeoutMs = 2500): Promise<ScanResult> {
+	return probeTargets(scanTargets(extraBroadcast), timeoutMs)
+}
+
+/**
+ * Send the discovery probe to each target and collect replies until `timeoutMs`.
+ * A failed send to one target is recorded and the scan carries on. It only rejects if the socket
+ * itself fails or the probe could not be sent to any target.
+ */
+export async function probeTargets(
+	targets: readonly string[],
+	timeoutMs = 2500,
+	port = DISCOVERY_PORT,
+): Promise<ScanResult> {
 	return new Promise((resolve, reject) => {
 		const found = new Map<string, DiscoveredDevice>()
+		const failedTargets: FailedTarget[] = []
 		const socket = dgram.createSocket('udp4')
 		let done = false
 		const close = (): void => {
@@ -128,7 +163,7 @@ export async function scanForDevices(
 		const timer = setTimeout(() => {
 			done = true
 			close()
-			resolve([...found.values()])
+			resolve({ devices: [...found.values()], failedTargets: [...failedTargets] })
 		}, timeoutMs)
 		const fail = (err: Error): void => {
 			if (done) return
@@ -136,6 +171,12 @@ export async function scanForDevices(
 			clearTimeout(timer)
 			close()
 			reject(err)
+		}
+		const recordFailure = (target: string, err: Error): void => {
+			failedTargets.push({ target, error: err.message })
+			if (failedTargets.length < targets.length) return
+			const detail = failedTargets.map((f) => `${f.target} (${f.error})`).join(', ')
+			fail(new Error(`Could not send the discovery probe to any address: ${detail}`))
 		}
 
 		socket.on('error', fail)
@@ -156,9 +197,13 @@ export async function scanForDevices(
 				fail(e as Error)
 				return
 			}
+			if (targets.length === 0) {
+				fail(new Error('No addresses to send the discovery probe to'))
+				return
+			}
 			for (const target of targets) {
-				socket.send(PROBE, DISCOVERY_PORT, target, (err) => {
-					if (err) fail(err)
+				socket.send(PROBE, port, target, (err) => {
+					if (err && !done) recordFailure(target, err)
 				})
 			}
 		})

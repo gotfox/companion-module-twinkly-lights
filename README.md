@@ -1,6 +1,6 @@
-# companion-module-twinkly-pro
+# companion-module-twinkly-lights
 
-Bitfocus Companion module for [Twinkly Pro](https://twinklypro.com) controllers (PRO, MAX, PLUS, Lightwall) using their OSC interface.
+Bitfocus Companion module for [Twinkly Pro](https://twinklypro.com) controllers (PRO, MAX, PLUS, Lightwall) and [Twinkly](https://twinkly.com) lights, using OSC (Pro) or the local REST API (both).
 
 See [HELP.md](./companion/HELP.md) and [LICENSE](./LICENSE).
 

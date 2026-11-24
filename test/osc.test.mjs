@@ -53,6 +53,10 @@ test('computes broadcast addresses', async () => {
 	assert.equal(broadcastAddress('10.1.2.3', '255.255.0.0'), '10.1.255.255')
 	assert.equal(broadcastAddress('10.0.0.5', '255.255.255.252'), '10.0.0.7')
 	assert.equal(broadcastAddress('bad', '255.255.255.0'), null)
+	const { hasBroadcast } = await import('../dist/discovery.js')
+	assert.equal(hasBroadcast('255.255.252.0'), true)
+	assert.equal(hasBroadcast('255.255.255.255'), false, 'VPN tunnel (/32)')
+	assert.equal(hasBroadcast('255.255.255.254'), false, 'point-to-point (/31)')
 	assert.equal(printable(Buffer.from([0xc0, 0xa8, 0, 1, 0x4f, 0x4b, 0x54, 0x77])), 'OKTw')
 })
 
@@ -79,4 +83,28 @@ test('parses discovery replies captured from real controllers', async () => {
 	assert.equal(parseDiscoveryReply(Buffer.from('hello')).kind, 'other')
 	assert.equal(suggestDeviceId('TwPLUS_aabbcc'), undefined)
 	assert.equal(suggestDeviceId('TwPRO_A01029'), 'TwPRO304950a01029')
+})
+
+test('scan keeps going when one target fails, and reports the failure', async () => {
+	const dgram = await import('node:dgram')
+	const { probeTargets } = await import('../dist/discovery.js')
+	// Fake PRO controller on localhost that answers any probe
+	const reply = Buffer.from('c0a807bb5450547750524f5f61303066366300', 'hex')
+	const fake = dgram.createSocket('udp4')
+	fake.on('message', (_msg, rinfo) => fake.send(reply, rinfo.port, rinfo.address))
+	await new Promise((resolve) => fake.bind(0, '127.0.0.1', resolve))
+	try {
+		const result = await probeTargets(['no-such-host.invalid', '127.0.0.1'], 500, fake.address().port)
+		assert.equal(result.devices.length, 1)
+		assert.equal(result.devices[0].suggestedId, 'TwPRO304950a00f6c')
+		assert.equal(result.failedTargets.length, 1)
+		assert.equal(result.failedTargets[0].target, 'no-such-host.invalid')
+	} finally {
+		fake.close()
+	}
+})
+
+test('scan rejects only when every target fails', async () => {
+	const { probeTargets } = await import('../dist/discovery.js')
+	await assert.rejects(probeTargets(['no-such-host.invalid'], 500, 9))
 })

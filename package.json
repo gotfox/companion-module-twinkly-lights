@@ -1,5 +1,5 @@
 {
-	"name": "twinkly-pro",
+	"name": "twinkly-lights",
 	"version": "0.1.0",
 	"main": "dist/main.js",
 	"type": "module",
@@ -17,7 +17,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/bitfocus/companion-module-twinkly-pro.git"
+		"url": "git+https://github.com/bitfocus/companion-module-twinkly-lights.git"
 	},
 	"engines": {
 		"node": "^26",
