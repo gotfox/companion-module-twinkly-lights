@@ -4,13 +4,32 @@ import { encodeOscMessage, oscInt, oscString } from '../dist/osc.js'
 import { buildAddress, deviceId, isValidMac, normaliseMac } from '../dist/twinkly.js'
 
 test('encodes the documented brightness example (ssi enabled A 50)', () => {
-	const buf = encodeOscMessage('/v1/*/led/brightness', [oscString('enabled'), oscString('A'), oscInt(50)])
+	const buf = encodeOscMessage('/v1/*/led/out/brightness', [oscString('enabled'), oscString('A'), oscInt(50)])
 	assert.equal(buf.length % 4, 0)
-	assert.equal(buf.length, 48)
-	assert.equal(buf.subarray(0, 20).toString(), '/v1/*/led/brightness')
-	assert.equal(buf.subarray(24, 28).toString(), ',ssi')
-	assert.equal(buf.subarray(32, 39).toString(), 'enabled')
-	assert.equal(buf.readInt32BE(44), 50)
+	assert.equal(buf.length, 52)
+	assert.equal(buf.subarray(0, 24).toString(), '/v1/*/led/out/brightness')
+	assert.equal(buf.subarray(28, 32).toString(), ',ssi')
+	assert.equal(buf.subarray(36, 43).toString(), 'enabled')
+	assert.equal(buf.readInt32BE(48), 50)
+})
+
+test('OSC brightness goes to led/out/brightness, and disabling sends only the mode', async () => {
+	const { OscController } = await import('../dist/controller.js')
+	const sent = []
+	const host = {
+		resolveDeviceId: () => 'TwPRO*',
+		sendCommand: (id, path, args) => {
+			sent.push({ id, path, args })
+			return true
+		},
+	}
+	const controller = new OscController(host, () => {})
+	await controller.brightness({}, { mode: 'enabled', type: 'A', value: 50 })
+	await controller.brightness({}, { mode: 'disabled', type: 'A', value: 100 })
+	assert.equal(sent[0].path, 'led/out/brightness')
+	assert.deepEqual(sent[0].args, [oscString('enabled'), oscString('A'), oscInt(50)])
+	assert.equal(sent[1].path, 'led/out/brightness')
+	assert.deepEqual(sent[1].args, [oscString('disabled')])
 })
 
 test('encodes a message with no arguments and pads strings', () => {

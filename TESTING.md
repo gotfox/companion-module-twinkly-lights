@@ -66,7 +66,7 @@ Make buttons for each of these and press them in order, watching the lights:
 Write down:
 
 - whether absolute and relative changes both work, and whether relative changes are visibly the size you expect
-- what the lights do when the filter is switched off, because the module sends `disabled A 100` and that value is a guess
+- what the lights do when the filter is switched off (the module sends only `disabled`, as in Twinkly's guide)
 - whether the filter switching back on restores the previous level
 
 ## Test 5: Effect handles and UUIDs
@@ -117,7 +117,7 @@ Trimmed to the relevant lines:
 
 - your model, and which of Tests 1-6 passed or failed
 - the Companion log lines from Test 7, including any unrecognised replies and their hex
-- the answers to the four open questions: the `disabled` brightness value, the handle range, the playlist index, and which broadcast address worked
+- the answers to the open questions: the handle range, the playlist index, and which broadcast address worked (the `disabled` brightness value is settled: send only `disabled`)
 - the tcpdump output from Test 7 if the scan found nothing
 
 ## Results
@@ -212,14 +212,37 @@ Setup: Art-Net was enabled in the Twinkly Pro app on the group master (`192.168.
 
 Conclusion: Art-Net is not broken by 4.1.0 for direct, unicast, Net 0 / Sub-Net 0 / Universe 0 control, which leaves the console configuration as the likely cause of the grandMA2 report.
 
+### 2026-11-25: OSC brightness works with `led/out/brightness` (supersedes the Test 4 failure above)
+
+Twinkly support (Gianmarco) suggested `/v1/TwPRO*/led/out/brightness "enabled" "A" 50` and sent the "Twinkly Pro Third-party Controls 2026" PDF. The module and the earlier tests used `led/brightness`; the PDF's brightness slide gives `/v1/<device_id>/led/out/brightness`, the same path REST uses. Tested on the Tree Back master (`192.168.7.187`) with its own ID `TwPRO304950a00f6c`, by unicast, with the result read back over REST:
+
+| Sent (after the address `/v1/TwPRO304950a00f6c/led/out/brightness`) | REST `led/out/brightness` afterwards          |
+| ------------------------------------------------------------------- | --------------------------------------------- |
+| `enabled A 50` (from 100)                                           | `enabled`, 50. Both trees visibly dimmed.     |
+| `enabled R -20`                                                     | `enabled`, 30                                 |
+| `enabled R 20`                                                      | `enabled`, 50                                 |
+| `disabled` (mode only, as in the PDF)                               | `disabled`, 50 (stored value kept)            |
+| `enabled A 30`, then `disabled A 100`                               | `disabled`, 30 (the extra arguments are harmless) |
+| `enabled A 100`                                                     | `enabled`, 100                                |
+
+The module now sends `led/out/brightness`, and only `disabled` when switching the filter off. This answers the last open question from "What to report": the `disabled` value isn't needed.
+
+Other points from the PDF:
+
+- OSC needs firmware v3.5.0 or later on TWPRO1500ETHP, TWPROCTRLPLC21 and TWPROCTRLSPI21. 4.1.0 is fine.
+- It documents the effect handle as `[0..15]`. Handles 16 and 17 worked on PRO, as recorded above.
+- `application/mode` lists a `color` mode next to `off`, `movie` and `playlist`. The module doesn't send it and it hasn't been tested.
+- Commands to a group go to the master only, as already seen.
+
 ## Open items
 
-As of 2026-11-23, after the hardware tests above.
+As of 2026-11-25, after the hardware tests above.
 
 ### Waiting on Twinkly
 
-- **OSC brightness on PRO firmware 4.1.0** (Test 4). Ignored in every form tested, including the OSC guide's own `oscsend` example, while REST brightness works. A report for Twinkly support is drafted (kept outside the repo). Re-run Test 4 after any firmware update.
-- **Value to send with `disabled`** in `led/brightness`. The OSC guide doesn't say. The module sends `disabled A 100`. Of the four open questions in "What to report", this is the only one left: the handle range, the playlist index and broadcast are answered.
+- **Twinkly's online OSC guide.** Its brightness example, sent with `oscsend` on 4.1.0, did nothing (2026-11-23). Twinkly's "Third-party Controls" PDF and their support reply use `led/out/brightness`, which works. Check that the online guide has the same address.
+- **Art-Net ArtPoll.** The controller doesn't reply to `ArtPoll`, so consoles that discover nodes by polling won't list it. Worth telling Twinkly.
+- **Re-run Tests 4 and the Art-Net checks after any firmware update.**
 
 ### Not yet tested on hardware
 

@@ -67,7 +67,7 @@ With OSC, every action can override the default target. With REST, commands alwa
 
 **Start playlist** takes the playlist's index, with 0 as the first playlist. A handle, UUID or playlist index that doesn't exist is ignored, and the current content keeps playing.
 
-**Brightness over OSC:** on PRO firmware 4.1.0 the controller ignored every OSC brightness message tested, including the OSC guide's own example. Brightness works with the REST control method.
+**Brightness over OSC** goes to `led/out/brightness`, as in Twinkly's "Third-party Controls" guide. Absolute and relative changes and the on/off filter were verified on PRO firmware 4.1.0.
 
 ### State: read back or assumed
 
@@ -99,6 +99,6 @@ The scan was verified on PRO controllers only. You don't need it to use the modu
 - The REST API is described in Twinkly's API reference (https://ledworks.atlassian.net/wiki/spaces/TWPUB/pages/1662222337/Twinkly+Runtime+API+Reference, for its cloud form) and in the community's xled-docs (https://xled-docs.readthedocs.io, for the local `/xled/` endpoints, which describe `/xled/v1/`). Twinkly Pro uses `/xled/v2/`, verified on TWPRO1500ETHP with firmware 4.1.0. A firmware update could change it; if REST stops working on Twinkly Pro, switch to OSC.
 - REST logs in to the controller the same way the Twinkly API does. In testing, the Twinkly Pro app kept working alongside it.
 - The integer after an OSC `playlist` command is the playlist index, with 0 as the first playlist (verified on PRO).
-- "Disable brightness filter" sends `disabled A 100`, because the guide doesn't say which value to send.
+- "Disable brightness filter" sends only `disabled`, as in Twinkly's guide. The controller keeps the stored level.
 - The OSC guide gives the effect handle range as both 0-15 and 0-n. Handles 16 and 17 worked on PRO, so it is 0-n.
 - PLUS, Lightwall and MAX models have not been tested.

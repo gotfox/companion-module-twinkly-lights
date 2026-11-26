@@ -48,7 +48,9 @@ export class OscController implements Controller {
 	}
 
 	async brightness(target: TargetOptions, c: BrightnessCommand): Promise<boolean> {
-		return this.send(target, 'led/brightness', [oscString(c.mode), oscString(c.type), oscInt(c.value)])
+		// Twinkly's "Third-party Controls" guide: `disabled` takes no further arguments.
+		const args = c.mode === 'disabled' ? [oscString(c.mode)] : [oscString(c.mode), oscString(c.type), oscInt(c.value)]
+		return this.send(target, 'led/out/brightness', args)
 	}
 
 	async builtinEffect(): Promise<boolean> {

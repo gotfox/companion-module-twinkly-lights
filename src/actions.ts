@@ -47,10 +47,6 @@ const targetFields: SomeCompanionActionInputField<keyof TargetOptions>[] = [
 
 const clamp = (n: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, Math.round(n)))
 
-/** Appended to brightness action descriptions: OSC brightness is ignored on the firmware we tested, REST works. */
-const BRIGHTNESS_NOTE =
-	' With OSC, the controller ignored brightness in testing on PRO firmware 4.1.0; use the REST control method for brightness.'
-
 const NO_LIST_CHOICE = { id: '', label: '(set a controller IP to load the effect list)' }
 
 export function UpdateActions(self: ModuleInstance): void {
@@ -199,7 +195,7 @@ export function UpdateActions(self: ModuleInstance): void {
 
 		brightness_set: {
 			name: 'Set brightness',
-			description: 'Absolute brightness 0-100 % (also enables the brightness filter).' + BRIGHTNESS_NOTE,
+			description: 'Absolute brightness 0-100 % (also enables the brightness filter).',
 			options: [
 				...targetFields,
 				{ id: 'value', type: 'number', label: 'Brightness (%)', default: 100, min: 0, max: 100, clampValues: true },
@@ -215,8 +211,7 @@ export function UpdateActions(self: ModuleInstance): void {
 		brightness_adjust: {
 			name: 'Adjust brightness (relative)',
 			description:
-				'Relative brightness change, -100 to 100. Without state reading, Companion tracks the result locally as an estimate.' +
-				BRIGHTNESS_NOTE,
+				'Relative brightness change, -100 to 100. Without state reading, Companion tracks the result locally as an estimate.',
 			options: [
 				...targetFields,
 				{ id: 'delta', type: 'number', label: 'Change (%)', default: 10, min: -100, max: 100, clampValues: true },
@@ -236,8 +231,7 @@ export function UpdateActions(self: ModuleInstance): void {
 		brightness_filter: {
 			name: 'Brightness filter on/off',
 			description:
-				'Enable or disable the brightness filter. Disabling sends "disabled A 100"; the guide does not say which value to send in that case.' +
-				BRIGHTNESS_NOTE,
+				'Enable or disable the brightness filter. Disabling keeps the stored level and sends only "disabled".',
 			options: [...targetFields, { id: 'enabled', type: 'checkbox', label: 'Enabled', default: true }],
 			callback: async ({ options }) => {
 				const mode = options.enabled ? 'enabled' : 'disabled'
