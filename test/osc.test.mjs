@@ -32,7 +32,7 @@ test('OSC brightness goes to led/out/brightness, and disabling sends only the mo
 	assert.deepEqual(sent[1].args, [oscString('disabled')])
 })
 
-test('OSC colour sends application/mode with three ints in R, G, B order', async () => {
+test('OSC color sends application/mode with three ints in R, G, B order', async () => {
 	const { OscController } = await import('../dist/controller.js')
 	const sent = []
 	const host = {

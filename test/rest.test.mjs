@@ -277,7 +277,7 @@ test('polled state maps the effect UUID to a handle when known', async () => {
 	assert.equal(unknown.effect, 'NEW-UUID')
 })
 
-test('parses the colour reported in colour mode, and ignores a missing or malformed one', () => {
+test('parses the color reported in color mode, and ignores a missing or malformed one', () => {
 	const ok = { result: { code: 1000 } }
 	const body = { mode: 'color', color_config: { red: 255, green: 0, blue: 128, hue: 330 }, ...ok }
 	assert.deepEqual(parseMode(body).color, { red: 255, green: 0, blue: 128 })
@@ -291,7 +291,7 @@ test('parses the colour reported in colour mode, and ignores a missing or malfor
 	})
 })
 
-test('polled state carries the colour in colour mode and clears it otherwise', async () => {
+test('polled state carries the color in color mode and clears it otherwise', async () => {
 	const { stateFromController } = await import('../dist/state.js')
 	const bright = { filter: 'enabled', value: 100 }
 	const ok = { result: { code: 1000 } }
@@ -305,7 +305,7 @@ test('polled state carries the colour in colour mode and clears it otherwise', a
 	assert.equal(stateFromController(parseMode({ mode: 'off', ...ok }), bright, []).color, null)
 })
 
-test('REST client sends a colour inside color_config', async () => {
+test('REST client sends a color inside color_config', async () => {
 	const { server, state, host } = await fakeController()
 	try {
 		const client = new TwinklyRestClient(host, { timeoutMs: 2000 })
@@ -316,7 +316,7 @@ test('REST client sends a colour inside color_config', async () => {
 	}
 })
 
-test('REST client updates a colour that is already showing with led/color', async () => {
+test('REST client updates a color that is already showing with led/color', async () => {
 	const { server, state, host } = await fakeController()
 	try {
 		const client = new TwinklyRestClient(host, { timeoutMs: 2000 })
@@ -328,7 +328,7 @@ test('REST client updates a colour that is already showing with led/color', asyn
 	}
 })
 
-test('REST controller uses the cheaper colour update only when the lights already show a solid colour', async () => {
+test('REST controller uses the cheaper color update only when the lights already show a solid color', async () => {
 	const { ContentCache, RestController } = await import('../dist/controller.js')
 	const calls = []
 	const client = {
@@ -351,7 +351,7 @@ test('REST controller uses the cheaper colour update only when the lights alread
 	assert.deepEqual(calls, ['mode', 'mode', 'update'])
 })
 
-test('REST controller shows a colour, and reports a failure instead of throwing', async () => {
+test('REST controller shows a color, and reports a failure instead of throwing', async () => {
 	const { ContentCache, RestController } = await import('../dist/controller.js')
 	const sent = []
 	const logs = []

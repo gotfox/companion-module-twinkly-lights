@@ -1,4 +1,4 @@
-/** A solid colour, each channel 0-255. */
+/** A solid color, each channel 0-255. */
 export interface RgbColor {
 	readonly red: number
 	readonly green: number
@@ -13,7 +13,7 @@ const WHITE = 0xffffff
 
 export const clampByte = (n: number): number => Math.min(BYTE_MAX, Math.max(0, Math.round(n)))
 
-/** Companion colour pickers give a 0xRRGGBB number. Anything above 24 bits is ignored. */
+/** Companion color pickers give a 0xRRGGBB number. Anything above 24 bits is ignored. */
 export function rgbFromNumber(n: number): RgbColor {
 	const value = Number.isFinite(n) ? Math.trunc(n) : 0
 	return {

@@ -9,7 +9,7 @@ export type TargetOptions = { target?: string; productType?: string; mac?: strin
 export type EffectSelector = { handle: number } | { uuid: string }
 
 export interface ColorOptions {
-	/** The lights already show a solid colour, so a cheaper call can change it (used by fade steps) */
+	/** The lights already show a solid color, so a cheaper call can change it (used by fade steps) */
 	alreadySolid?: boolean
 }
 
@@ -20,7 +20,7 @@ export interface Controller {
 	movie(target: TargetOptions, effect: EffectSelector): Promise<boolean>
 	playlist(target: TargetOptions, index: number): Promise<boolean>
 	brightness(target: TargetOptions, command: BrightnessCommand): Promise<boolean>
-	/** Show a solid colour */
+	/** Show a solid color */
 	color(target: TargetOptions, color: RgbColor, options?: ColorOptions): Promise<boolean>
 	/** Consumer lights only */
 	builtinEffect(target: TargetOptions, index: number): Promise<boolean>
@@ -229,9 +229,9 @@ export class RestController implements Controller {
 
 	async color(_target: TargetOptions, c: RgbColor, options?: ColorOptions): Promise<boolean> {
 		if (options?.alreadySolid) {
-			return this.run(`Colour ${colorHex(c)} (update)`, async () => this.client.updateColor(c))
+			return this.run(`Color ${colorHex(c)} (update)`, async () => this.client.updateColor(c))
 		}
-		return this.run(`Colour ${colorHex(c)}`, async () => this.client.setColor(c))
+		return this.run(`Color ${colorHex(c)}`, async () => this.client.setColor(c))
 	}
 
 	async builtinEffect(_target: TargetOptions, index: number): Promise<boolean> {

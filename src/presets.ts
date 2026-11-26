@@ -157,7 +157,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 		colorIds.push(id)
 		presets[id] = {
 			type: 'simple',
-			name: `Colour: ${p.label}`,
+			name: `Color: ${p.label}`,
 			style: { text: p.label, size: 'auto', color: contrastText(p.color), bgcolor: rgb },
 			steps: [{ down: [{ actionId: 'color_set', options: { ...defaultTarget, color: rgb, fade: 0 } }], up: [] }],
 			feedbacks: [
@@ -199,9 +199,9 @@ export function UpdatePresets(self: ModuleInstance): void {
 			definitions: [{ id: 'levels', name: 'Brightness', type: 'simple', presets: brightnessIds }],
 		},
 		{
-			id: 'colours',
-			name: 'Colours',
-			definitions: [{ id: 'solid', name: 'Solid colours (Twinkly Pro)', type: 'simple', presets: colorIds }],
+			id: 'colors',
+			name: 'Colors',
+			definitions: [{ id: 'solid', name: 'Solid colors (Twinkly Pro)', type: 'simple', presets: colorIds }],
 		},
 	]
 

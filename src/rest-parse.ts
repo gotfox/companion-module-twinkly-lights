@@ -23,7 +23,7 @@ export class RestResponseError extends Error {
 }
 
 export type GroupRole = 'master' | 'slave' | 'none' | 'unknown'
-/** `effect` (built-in effects) exists on consumer lights only; `color` (a solid colour) is also a Pro mode */
+/** `effect` (built-in effects) exists on consumer lights only; `color` (a solid color) is also a Pro mode */
 export type ControllerMode = 'off' | 'movie' | 'playlist' | 'effect' | 'color' | 'unknown'
 const KNOWN_MODES: readonly ControllerMode[] = ['off', 'movie', 'playlist', 'effect', 'color']
 /** Consumer firmware reports an empty playlist with this UUID */
@@ -48,7 +48,7 @@ export interface ModeInfo {
 	effectUuid: string
 	playlistName: string
 	playlistUuid: string
-	/** The solid colour shown. Only present in colour mode, when the controller reports it. */
+	/** The solid color shown. Only present in color mode, when the controller reports it. */
 	color?: RgbColor
 }
 
@@ -118,7 +118,7 @@ export function parseGestalt(body: unknown): Gestalt {
 	}
 }
 
-/** `color_config` as reported in colour mode: red, green and blue as numbers. Anything else is ignored. */
+/** `color_config` as reported in color mode: red, green and blue as numbers. Anything else is ignored. */
 function parseColorConfig(value: unknown): RgbColor | undefined {
 	if (!isObject(value)) return undefined
 	const red = numOrNull(value.red)

@@ -3,15 +3,15 @@ import assert from 'node:assert/strict'
 import { COLOR_PRESETS, clampByte, colorHex, colorToNumber, contrastText, rgbFromNumber, sameColor } from '../dist/color.js'
 import { colorVariable } from '../dist/state.js'
 
-test('the colour variable is empty unless the lights are in colour mode', () => {
+test('the color variable is empty unless the lights are in color mode', () => {
 	const red = { red: 255, green: 0, blue: 0 }
 	assert.equal(colorVariable({ mode: 'color', color: red }), 'ff0000')
-	assert.equal(colorVariable({ mode: 'off', color: red }), '', 'a stale colour after another mode was chosen')
+	assert.equal(colorVariable({ mode: 'off', color: red }), '', 'a stale color after another mode was chosen')
 	assert.equal(colorVariable({ mode: 'movie', color: red }), '')
 	assert.equal(colorVariable({ mode: 'color', color: null }), '')
 })
 
-test('rgbFromNumber splits a Companion colour (0xRRGGBB)', () => {
+test('rgbFromNumber splits a Companion color (0xRRGGBB)', () => {
 	assert.deepEqual(rgbFromNumber(0xff8000), { red: 255, green: 128, blue: 0 })
 	assert.deepEqual(rgbFromNumber(0x000000), { red: 0, green: 0, blue: 0 })
 	assert.deepEqual(rgbFromNumber(0x0000ff), { red: 0, green: 0, blue: 255 })
@@ -47,14 +47,14 @@ test('sameColor compares channels and treats null as different', () => {
 	assert.equal(sameColor(null, null), false)
 })
 
-test('contrastText picks black on light colours and white on dark ones', () => {
+test('contrastText picks black on light colors and white on dark ones', () => {
 	assert.equal(contrastText({ red: 255, green: 255, blue: 255 }), 0x000000)
 	assert.equal(contrastText({ red: 255, green: 220, blue: 0 }), 0x000000)
 	assert.equal(contrastText({ red: 0, green: 0, blue: 255 }), 0xffffff)
 	assert.equal(contrastText({ red: 0, green: 0, blue: 0 }), 0xffffff)
 })
 
-test('colour presets have unique ids and valid channel values', () => {
+test('color presets have unique ids and valid channel values', () => {
 	assert.ok(COLOR_PRESETS.length >= 8)
 	assert.equal(new Set(COLOR_PRESETS.map((p) => p.id)).size, COLOR_PRESETS.length)
 	for (const p of COLOR_PRESETS) {

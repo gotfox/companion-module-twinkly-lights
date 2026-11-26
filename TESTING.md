@@ -234,7 +234,7 @@ Other points from the PDF:
 - `application/mode` lists a `color` mode next to `off`, `movie` and `playlist`. The module doesn't send it and it hasn't been tested.
 - Commands to a group go to the master only, as already seen.
 
-### 2026-11-26: Colour mode and REST sessions (PRO firmware 4.1.0)
+### 2026-11-26: Color mode and REST sessions (PRO firmware 4.1.0)
 
 The Third-party Controls PDF lists `color` as an application mode but gives no arguments for it. Probed on the Tree Back master with its own ID, reading the mode back over REST each time:
 
@@ -252,39 +252,39 @@ The Third-party Controls PDF lists `color` as an application mode but gives no a
 
 **REST sessions:** a second login invalidates the first token (A valid, then B logs in, then A gets 401). In a loop reading `application/mode` every 500 ms with nothing else running from the test Mac, the token was rejected after about 1.6 s, because another client logged in. Any other REST client on the same controller (a second Companion, a script, possibly the app) will therefore knock the module out until it logs in again. The module re-logs in after a 401, so two clients fight each other rather than fail permanently.
 
-#### 2026-11-26: Colour and fades through the module's own classes
+#### 2026-11-26: Color and fades through the module's own classes
 
 Driven from a script that used the module's compiled `OscController`, `RestController` and fade helpers against the Tree Back master (a group of two trees), watching both trees.
 
 | Check                                          | Result                                                                                                                                                                                           |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| OSC colour red (instant)                       | Pass. The module's packet is byte-for-byte what the hand-built sender sent.                                                                                                                      |
-| OSC colour fade red to blue, 4 s               | At 100 ms steps: fairly smooth, with a couple of stutter steps. At **50 ms**: smooth. The controller renders about 12 frames a second (`frame_rate` 12, about 83 ms), so OSC now steps every 50 ms. |
+| OSC color red (instant)                       | Pass. The module's packet is byte-for-byte what the hand-built sender sent.                                                                                                                      |
+| OSC color fade red to blue, 4 s               | At 100 ms steps: fairly smooth, with a couple of stutter steps. At **50 ms**: smooth. The controller renders about 12 frames a second (`frame_rate` 12, about 83 ms), so OSC now steps every 50 ms. |
 | OSC brightness fade 100% to 20% (4 s), 20% to 100% (3 s) | Pass. Smooth; a slight stutter on the way up. The controller reported the target level after each.                                                                         |
-| REST colour (instant)                          | Pass. `application/mode` with `color_config`.                                                                                                                                                    |
+| REST color (instant)                          | Pass. `application/mode` with `color_config`.                                                                                                                                                    |
 | REST brightness fade, 8 s, 250 ms steps        | Reached the target in 8.1 s. Noticeable small steps.                                                                                                                                             |
 | REST brightness fade, 8 s, **125 ms** steps    | Reached the target in 8.0 s. Much smoother. REST now steps every 125 ms.                                                                                                                         |
 
 Found along the way:
 
-- A REST colour fade (green to magenta, 4 s) took 4.4 s and looked steppier than the REST brightness fades, even at 125 ms steps. Timing each call explains it: `POST application/mode` with a colour takes about **180 ms**, against about 28 ms for a brightness POST and about 35 ms for a GET. While the lights already show a solid colour, `POST led/color {"red","green","blue"}` works too, reads back correctly and takes about **28 ms**. A colour fade therefore sets the colour mode with its first step and uses `led/color` for the rest. Steps also run on a fixed schedule now, instead of sleeping a full step after each send, and a fade never sleeps for a negative time when a slow send overruns the end. All three have unit tests.
-- Re-run after those changes, a REST colour fade from magenta to green over 4 s took 4.0 s and looked noticeably smoother, with two stutters.
+- A REST color fade (green to magenta, 4 s) took 4.4 s and looked steppier than the REST brightness fades, even at 125 ms steps. Timing each call explains it: `POST application/mode` with a color takes about **180 ms**, against about 28 ms for a brightness POST and about 35 ms for a GET. While the lights already show a solid color, `POST led/color {"red","green","blue"}` works too, reads back correctly and takes about **28 ms**. A color fade therefore sets the color mode with its first step and uses `led/color` for the rest. Steps also run on a fixed schedule now, instead of sleeping a full step after each send, and a fade never sleeps for a negative time when a slow send overruns the end. All three have unit tests.
+- Re-run after those changes, a REST color fade from magenta to green over 4 s took 4.0 s and looked noticeably smoother, with two stutters.
 - The REST read-back often returned `401` while a fade was running: another REST client was logging in and ending the module's login (see Known limitations).
 - A first attempt to drive the module sent nothing, because the test script closed its UDP socket before the datagram left. The packet itself was correct.
 
-#### 2026-11-26: Solid colour on Twinkly Squares (TWQ064STW, firmware 2.11.0)
+#### 2026-11-26: Solid color on Twinkly Squares (TWQ064STW, firmware 2.11.0)
 
 Probed with the module's REST client (consumer family), watching the Squares, which were off to start with:
 
 | Request                                                                          | Result                                                                                                                                      |
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `POST led/color {"red":255,"green":0,"blue":0}`, then `POST led/mode {"mode":"color"}` | Pass. Solid red. `led/mode` then reads `mode: color` with a `color_config` (red 255, green 1, blue 1, hue 0, saturation 254).        |
-| `POST led/color {"red":0,"green":0,"blue":255}` alone, while in colour mode      | Pass. Changed to solid blue.                                                                                                                |
+| `POST led/color {"red":0,"green":0,"blue":255}` alone, while in color mode      | Pass. Changed to solid blue.                                                                                                                |
 | Timing                                                                           | `POST led/color` median about 88 ms (max 226 ms) and `GET led/mode` about 100 ms, slower than on Pro.                                         |
 
-The controller rounds colours a little (saturation 254, and a stored 0, 17, 200 read back as 0, 21, 200). One restore failed with `verify: controller returned code 1102`, probably another client logging in at the same moment, and a retry worked.
+The controller rounds colors a little (saturation 254, and a stored 0, 17, 200 read back as 0, 21, 200). One restore failed with `verify: controller returned code 1102`, probably another client logging in at the same moment, and a retry worked.
 
-Colour fade through the module's own `RestController` and fade helpers (red to blue, 4 s, 125 ms steps): it took 4.1 s but looked **steppy**. A single `led/color` jump snaps to the new colour, so the Squares don't smooth between updates. Logging the sends showed why: 23 updates in 4 s instead of 32, with a median gap of 126 ms but a worst gap of 500 ms. The Squares usually answer a colour update in about 90 ms but sometimes stall for 250-500 ms, which skips several steps at once. A second run looked a little better. Fades on Twinkly lights over REST are limited by the light's response time, so they look coarser than on Pro (about 28 ms per colour update).
+Color fade through the module's own `RestController` and fade helpers (red to blue, 4 s, 125 ms steps): it took 4.1 s but looked **steppy**. A single `led/color` jump snaps to the new color, so the Squares don't smooth between updates. Logging the sends showed why: 23 updates in 4 s instead of 32, with a median gap of 126 ms but a worst gap of 500 ms. The Squares usually answer a color update in about 90 ms but sometimes stall for 250-500 ms, which skips several steps at once. A second run looked a little better. Fades on Twinkly lights over REST are limited by the light's response time, so they look coarser than on Pro (about 28 ms per color update).
 
 ## Open items
 
@@ -298,8 +298,8 @@ As of 2026-11-26, after the hardware tests above.
 
 ### Not yet tested on hardware
 
-- **Solid colour on other Twinkly lights.** Verified on the Squares only, including a colour fade (steppy, see above). The Line (TWL100STW, family S) hasn't been tried.
-- **A colour fade over a broadcast address with assumed state.** The fades above were run with a controller IP.
+- **Solid color on other Twinkly lights.** Verified on the Squares only, including a color fade (steppy, see above). The Line (TWL100STW, family S) hasn't been tried.
+- **A color fade over a broadcast address with assumed state.** The fades above were run with a controller IP.
 - **PLUS, Lightwall and MAX models** (any method). To check on each:
   - the OSC device ID prefix (`TwPLUS` for PLUS and Lightwall is assumed from the guide)
   - whether the MAC starts with `304950` (only confirmed on PRO)
@@ -315,7 +315,7 @@ As of 2026-11-26, after the hardware tests above.
 ### Known limitations
 
 - **One REST login per controller.** A second login (another Companion, a script, possibly the app) ends the first client's login. The module logs in again after a `401`, so two REST clients take turns, but a fade may get a late step. OSC isn't affected.
-- **Fades are made by Companion.** The controller has no fade command, so a fade is a series of steps and needs a known starting level or colour.
+- **Fades are made by Companion.** The controller has no fade command, so a fade is a series of steps and needs a known starting level or color.
 - **No state from slaves.** A group slave doesn't report the group's playlist, so state must be read from the master.
 - **Built-in effects aren't read back.** When a Twinkly light is in `effect` mode, the module doesn't read which built-in effect is playing (`led/effects/current` isn't polled).
 - **The Effect matches feedback accepts a handle, UUID or name.** An effect named like a number (e.g. "3") can collide with handle 3.

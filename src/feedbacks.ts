@@ -60,7 +60,7 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 						{ id: 'movie', label: 'Movie (effect)' },
 						{ id: 'playlist', label: 'Playlist' },
 						{ id: 'effect', label: 'Built-in effect (Twinkly)' },
-						{ id: 'color', label: 'Solid colour' },
+						{ id: 'color', label: 'Solid color' },
 					],
 				},
 			],
@@ -101,12 +101,12 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 			callback: (feedback) => self.state.brightness === feedback.options.value,
 		},
 		color_is: {
-			name: 'Colour matches',
+			name: 'Color matches',
 			description:
-				'True if the lights are showing this solid colour (read from the controller when state reading is on; otherwise the last colour Companion sent).',
+				'True if the lights are showing this solid color (read from the controller when state reading is on; otherwise the last color Companion sent).',
 			type: 'boolean',
 			defaultStyle: { bgcolor: 0x006600, color: 0xffffff },
-			options: [{ id: 'color', type: 'colorpicker', label: 'Colour', default: 0xff0000, returnType: 'number' }],
+			options: [{ id: 'color', type: 'colorpicker', label: 'Color', default: 0xff0000, returnType: 'number' }],
 			callback: (feedback) =>
 				self.state.mode === 'color' && sameColor(self.state.color, rgbFromNumber(Number(feedback.options.color))),
 		},

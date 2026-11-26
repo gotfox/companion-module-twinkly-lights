@@ -56,7 +56,7 @@ With OSC, every action can override the default target. With REST, commands alwa
 
 - **Lights off**, **Play effect**, **Start playlist**
 - **Set brightness** (absolute 0-100), **Adjust brightness** (relative -100..100), **Brightness filter on/off**
-- **Set colour**: show a solid colour (Twinkly Pro). Brightness and colour changes can be **faded**; see below.
+- **Set color**: show a solid color (Twinkly Pro). Brightness and color changes can be **faded**; see below.
 - **Send raw OSC** to `/v1/<device_id>/<path>`. This works in either mode.
 - **Rescan network for controllers**: refreshes the discovered list and logs each controller's details; see below.
 
@@ -70,17 +70,17 @@ With OSC, every action can override the default target. With REST, commands alwa
 
 **Brightness over OSC** goes to `led/out/brightness`, as in Twinkly's "Third-party Controls" guide. Absolute and relative changes and the on/off filter were verified on PRO firmware 4.1.0.
 
-**Set colour** shows a solid colour, chosen with Companion's colour picker (or an expression). OSC sends `application/mode color R G B` (three integers, 0-255) and REST posts `application/mode` with the colour inside `color_config`. Both were verified on PRO firmware 4.1.0. Twinkly's guide lists a `color` mode but gives no arguments for it, so this form was found by testing; a bare `color` does nothing. On Twinkly lights (REST only) it posts `led/color` and then switches `led/mode` to `color`. That was verified on Twinkly Squares (firmware 2.11.0) but not yet on other models such as the Line. With state reading on, the `mode` variable shows `color` and the `color` variable shows the colour as `RRGGBB`. The **Colour matches** feedback and the **Colours** presets use it.
+**Set color** shows a solid color, chosen with Companion's color picker (or an expression). OSC sends `application/mode color R G B` (three integers, 0-255) and REST posts `application/mode` with the color inside `color_config`. Both were verified on PRO firmware 4.1.0. Twinkly's guide lists a `color` mode but gives no arguments for it, so this form was found by testing; a bare `color` does nothing. On Twinkly lights (REST only) it posts `led/color` and then switches `led/mode` to `color`. That was verified on Twinkly Squares (firmware 2.11.0) but not yet on other models such as the Line. With state reading on, the `mode` variable shows `color` and the `color` variable shows the color as `RRGGBB`. The **Color matches** feedback and the **Colors** presets use it.
 
-**Fades:** Set brightness, Adjust brightness and Set colour have a **Fade time** in seconds (0 is instant). The controller has no fade command, so Companion sends small steps: about 20 a second with OSC and 8 a second with REST. Verified on PRO firmware 4.1.0 with both trees of a group.
+**Fades:** Set brightness, Adjust brightness and Set color have a **Fade time** in seconds (0 is instant). The controller has no fade command, so Companion sends small steps: about 20 a second with OSC and 8 a second with REST. Verified on PRO firmware 4.1.0 with both trees of a group.
 
-- A fade needs a known starting point: the current brightness (state reading on, or a level you set earlier), or for colour, lights already showing a solid colour. If it isn't known, the change is sent instantly and the log says so.
+- A fade needs a known starting point: the current brightness (state reading on, or a level you set earlier), or for color, lights already showing a solid color. If it isn't known, the change is sent instantly and the log says so.
 - With the brightness filter off, a fade starts from 100%.
 - **Adjust brightness** with a fade becomes a fade to the new absolute level.
-- A fade runs in the background, so the button's other actions don't wait for it. A new brightness or colour command cancels a running fade on that setting, and the new command carries on from where the fade got to instead of jumping back. The brightness filter action cancels brightness fades, and Lights off, Play effect, Start playlist and the built-in effect action cancel colour fades, so a fade can't undo them. Fades for different controllers (OSC targets) run independently.
-- Fades on Twinkly lights (not Pro) look steppy: the lights take about 90 ms to answer a colour update and sometimes stall for up to half a second, so some steps are skipped. Twinkly Pro answers in about 30 ms.
-- OSC fades are a little smoother than REST fades, because REST handles fewer requests a second. A REST colour fade sets the colour with its first step and then uses a faster call for the rest.
-- A colour fade doesn't change brightness, and a brightness fade doesn't change colour.
+- A fade runs in the background, so the button's other actions don't wait for it. A new brightness or color command cancels a running fade on that setting, and the new command carries on from where the fade got to instead of jumping back. The brightness filter action cancels brightness fades, and Lights off, Play effect, Start playlist and the built-in effect action cancel color fades, so a fade can't undo them. Fades for different controllers (OSC targets) run independently.
+- Fades on Twinkly lights (not Pro) look steppy: the lights take about 90 ms to answer a color update and sometimes stall for up to half a second, so some steps are skipped. Twinkly Pro answers in about 30 ms.
+- OSC fades are a little smoother than REST fades, because REST handles fewer requests a second. A REST color fade sets the color with its first step and then uses a faster call for the rest.
+- A color fade doesn't change brightness, and a brightness fade doesn't change color.
 
 ### State: read back or assumed
 

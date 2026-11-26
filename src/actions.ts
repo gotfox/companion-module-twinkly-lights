@@ -98,7 +98,7 @@ export function UpdateActions(self: ModuleInstance): void {
 			description: 'Set application mode to off.',
 			options: [...targetFields],
 			callback: async ({ options }) => {
-				cancelColorFades(self) // a running colour fade would switch the lights back on at its next step
+				cancelColorFades(self) // a running color fade would switch the lights back on at its next step
 				if (await self.controller.off(options))
 					self.setState({ mode: 'off', effect: '', effectName: '', playlistName: '', playlistUuid: '' })
 			},
@@ -282,12 +282,12 @@ export function UpdateActions(self: ModuleInstance): void {
 		},
 
 		color_set: {
-			name: 'Set colour',
+			name: 'Set color',
 			description:
-				'Show a solid colour. Verified on Twinkly Pro (firmware 4.1.0) and Twinkly Squares (firmware 2.11.0, REST only). Optionally fade from the colour already showing; a fade needs the lights to be in a known solid colour, otherwise the change is instant.',
+				'Show a solid color. Verified on Twinkly Pro (firmware 4.1.0) and Twinkly Squares (firmware 2.11.0, REST only). Optionally fade from the color already showing; a fade needs the lights to be in a known solid color, otherwise the change is instant.',
 			options: [
 				...targetFields,
-				{ id: 'color', type: 'colorpicker', label: 'Colour', default: 0xff0000, returnType: 'number' },
+				{ id: 'color', type: 'colorpicker', label: 'Color', default: 0xff0000, returnType: 'number' },
 				fadeField,
 			],
 			callback: async ({ options }) => {

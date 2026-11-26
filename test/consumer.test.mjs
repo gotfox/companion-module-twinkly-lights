@@ -151,7 +151,7 @@ test('consumer client sends the consumer command sequence', async () => {
 	}
 })
 
-test('consumer client sets a colour with led/color, then switches to colour mode', async () => {
+test('consumer client sets a color with led/color, then switches to color mode', async () => {
 	const { server, state, host } = await fakeConsumer()
 	try {
 		const c = new TwinklyRestClient(host, { family: 'consumer', timeoutMs: 1000 })
@@ -167,7 +167,7 @@ test('consumer client sets a colour with led/color, then switches to colour mode
 	}
 })
 
-test('a consumer light in colour mode reports its colour with a top-level status code', () => {
+test('a consumer light in color mode reports its color with a top-level status code', () => {
 	// Captured from Twinkly Squares on firmware 2.11.0
 	const body = {
 		mode: 'color',

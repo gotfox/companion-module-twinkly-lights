@@ -136,7 +136,7 @@ test('adjust without a fade, or with an unknown level, sends the relative comman
 	assert.deepEqual(unknown.sentBrightness, [{ mode: 'enabled', type: 'R', value: 15 }])
 })
 
-test('set colour without a fade sends once and records mode and colour', async () => {
+test('set color without a fade sends once and records mode and color', async () => {
 	const host = fakeHost({ mode: 'movie' })
 	const red = { red: 255, green: 0, blue: 0 }
 	assert.equal(await setColor(host, TARGET, red, 0), true)
@@ -145,7 +145,7 @@ test('set colour without a fade sends once and records mode and colour', async (
 	assert.deepEqual(host.state.color, red)
 })
 
-test('a colour fade runs from the current colour when already in colour mode', async () => {
+test('a color fade runs from the current color when already in color mode', async () => {
 	const host = fakeHost({ mode: 'color', color: { red: 0, green: 0, blue: 0 } })
 	assert.equal(await setColor(host, TARGET, { red: 100, green: 50, blue: 0 }, 1), true)
 	assert.ok(host.sentColor.length > 2)
@@ -155,7 +155,7 @@ test('a colour fade runs from the current colour when already in colour mode', a
 	assert.deepEqual(host.state.color, { red: 100, green: 50, blue: 0 })
 })
 
-test('a colour fade sets the colour first, then uses the cheaper update for the remaining steps', async () => {
+test('a color fade sets the color first, then uses the cheaper update for the remaining steps', async () => {
 	const host = fakeHost({ mode: 'color', color: { red: 0, green: 0, blue: 0 } }, 'rest')
 	await setColor(host, TARGET, { red: 100, green: 0, blue: 0 }, 1)
 	assert.ok(host.sentColorOptions.length > 2)
@@ -163,13 +163,13 @@ test('a colour fade sets the colour first, then uses the cheaper update for the 
 	assert.ok(host.sentColorOptions.slice(1).every((o) => o.alreadySolid === true))
 })
 
-test('an instant colour change always sets the mode', async () => {
+test('an instant color change always sets the mode', async () => {
 	const host = fakeHost({ mode: 'color', color: { red: 1, green: 1, blue: 1 } })
 	await setColor(host, TARGET, { red: 9, green: 9, blue: 9 }, 0)
 	assert.deepEqual(host.sentColorOptions, [{ alreadySolid: false }])
 })
 
-test('a colour fade outside colour mode is sent instantly, with a warning', async () => {
+test('a color fade outside color mode is sent instantly, with a warning', async () => {
 	const host = fakeHost({ mode: 'movie' })
 	const blue = { red: 0, green: 0, blue: 255 }
 	assert.equal(await setColor(host, TARGET, blue, 3), true)
@@ -200,12 +200,12 @@ test('a change is only reported as a fade when steps will actually be sent', () 
 
 	const red = { red: 255, green: 0, blue: 0 }
 	const blue = { red: 0, green: 0, blue: 255 }
-	const inColour = fakeHost({ mode: 'color', color: red })
-	assert.equal(colorFades(inColour, TARGET, 2, blue), true)
-	assert.equal(colorFades(inColour, TARGET, 0, blue), false, 'no fade time')
-	assert.equal(colorFades(inColour, TARGET, 2, red), false, 'already that colour')
-	assert.equal(colorFades(fakeHost({ mode: 'movie' }), TARGET, 2, red), false, 'not in colour mode')
-	assert.equal(colorFades(fakeHost({ mode: 'color' }), TARGET, 2, red), false, 'colour not known')
+	const inColor = fakeHost({ mode: 'color', color: red })
+	assert.equal(colorFades(inColor, TARGET, 2, blue), true)
+	assert.equal(colorFades(inColor, TARGET, 0, blue), false, 'no fade time')
+	assert.equal(colorFades(inColor, TARGET, 2, red), false, 'already that color')
+	assert.equal(colorFades(fakeHost({ mode: 'movie' }), TARGET, 2, red), false, 'not in color mode')
+	assert.equal(colorFades(fakeHost({ mode: 'color' }), TARGET, 2, red), false, 'color not known')
 })
 
 const ticks = async (n = 8) => {
@@ -226,7 +226,7 @@ test('a fade interrupted by another command starts the next one from where it go
 	assert.equal(resumed.at(-1), reached + 10)
 })
 
-test('a colour fade interrupted by another colour starts the next fade from the colour it reached', async () => {
+test('a color fade interrupted by another color starts the next fade from the color it reached', async () => {
 	const red = { red: 255, green: 0, blue: 0 }
 	const host = fakeHost({ mode: 'color', color: red })
 	const slow = setColor(host, TARGET, { red: 0, green: 0, blue: 255 }, 30)
@@ -248,7 +248,7 @@ test('fades for different controllers run side by side', async () => {
 	assert.equal(await b, true)
 })
 
-test('cancelColorFades stops colour fades for every controller and leaves brightness fades alone', async () => {
+test('cancelColorFades stops color fades for every controller and leaves brightness fades alone', async () => {
 	const red = { red: 255, green: 0, blue: 0 }
 	const blue = { red: 0, green: 0, blue: 255 }
 	const host = fakeHost({ mode: 'color', color: red, brightness: 100, brightnessFilter: 'enabled' })
@@ -261,7 +261,7 @@ test('cancelColorFades stops colour fades for every controller and leaves bright
 	assert.equal(await a, false)
 	assert.equal(await b, false)
 	assert.equal(await level, true, 'the brightness fade carried on')
-	assert.equal(host.sentColor.length, sentColors, 'no colour step was sent after the cancel')
+	assert.equal(host.sentColor.length, sentColors, 'no color step was sent after the cancel')
 })
 
 test('cancelBrightnessFades stops brightness fades for every controller', async () => {
@@ -281,7 +281,7 @@ test('setting 100% when the filter is off and the level is already 100% still se
 	assert.equal(host.state.brightnessFilter, 'enabled')
 })
 
-test('fading to the colour already showing sends it once instead of doing nothing', async () => {
+test('fading to the color already showing sends it once instead of doing nothing', async () => {
 	const red = { red: 255, green: 0, blue: 0 }
 	const host = fakeHost({ mode: 'color', color: red })
 	assert.equal(await setColor(host, TARGET, red, 3), true)

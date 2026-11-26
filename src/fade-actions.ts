@@ -4,7 +4,7 @@ import { FADE_STEP_MS } from './fade.js'
 import type ModuleInstance from './main.js'
 import type { AssumedState } from './state.js'
 
-/** What the brightness and colour actions need from the module, so they can be tested without one. */
+/** What the brightness and color actions need from the module, so they can be tested without one. */
 export type FadeHost = Pick<ModuleInstance, 'state' | 'fader' | 'controller' | 'setState' | 'log' | 'resolveDeviceId'>
 
 const BRIGHTNESS_PREFIX = 'brightness:'
@@ -28,8 +28,8 @@ export const cancelBrightnessFades = (host: Pick<FadeHost, 'fader'>): void =>
 	host.fader.cancelMatching(BRIGHTNESS_PREFIX)
 
 /**
- * Stop running colour fades on every controller. Each colour step (over OSC) switches the controller to
- * colour mode, so a fade left running would undo Lights off, Play effect or Start playlist.
+ * Stop running color fades on every controller. Each color step (over OSC) switches the controller to
+ * color mode, so a fade left running would undo Lights off, Play effect or Start playlist.
  */
 export const cancelColorFades = (host: Pick<FadeHost, 'fader'>): void => host.fader.cancelMatching(COLOR_PREFIX)
 
@@ -50,7 +50,7 @@ export function startBrightness(state: Pick<AssumedState, 'brightness' | 'bright
 const brightnessNow = (host: FadeHost, channel: string): number | null =>
 	host.fader.current(channel)?.[0] ?? startBrightness(host.state)
 
-/** The colour showing now: the last step of a running fade, otherwise the known solid colour. */
+/** The color showing now: the last step of a running fade, otherwise the known solid color. */
 const colorNow = (host: FadeHost, channel: string): RgbColor | null => {
 	const running = host.fader.current(channel)
 	if (running) return fromVector(running)
@@ -72,7 +72,7 @@ export function adjustFades(host: FadeHost, target: TargetOptions, fadeSeconds: 
 	return from !== null && brightnessFades(host, target, fadeSeconds, clampPercent(from + delta))
 }
 
-/** Will this colour change run as a fade? Only from a known solid colour, and only to a different one. */
+/** Will this color change run as a fade? Only from a known solid color, and only to a different one. */
 export function colorFades(host: FadeHost, target: TargetOptions, fadeSeconds: number, color: RgbColor): boolean {
 	const from = colorNow(host, channelFor(COLOR_PREFIX, host, target))
 	return fadeSeconds > 0 && from !== null && !sameColor(from, color)
@@ -135,9 +135,9 @@ export async function adjustBrightness(
 }
 
 /**
- * Show a solid colour. A fade only runs when the lights are already showing a known solid colour;
- * from anything else there is no colour to start from, so the change is instant. A fade this replaces
- * hands over the colour it reached.
+ * Show a solid color. A fade only runs when the lights are already showing a known solid color;
+ * from anything else there is no color to start from, so the change is instant. A fade this replaces
+ * hands over the color it reached.
  */
 export async function setColor(
 	host: FadeHost,
@@ -153,7 +153,7 @@ export async function setColor(
 
 	const from = interrupted ? fromVector(interrupted) : host.state.mode === 'color' ? host.state.color : null
 	if (from !== null && fadeSeconds > 0 && !sameColor(from, color)) {
-		// The first step sets the colour mode; the rest use the cheaper update, which keeps REST steps fast
+		// The first step sets the color mode; the rest use the cheaper update, which keeps REST steps fast
 		let firstStep = true
 		const reached = await host.fader.run(
 			channel,
@@ -169,7 +169,7 @@ export async function setColor(
 		if (reached) record()
 		return reached
 	}
-	if (fadeSeconds > 0 && from === null) warnInstant(host, 'the current colour')
+	if (fadeSeconds > 0 && from === null) warnInstant(host, 'the current color')
 	const sent = await send(color, false)
 	if (sent) record()
 	return sent

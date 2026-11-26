@@ -183,19 +183,19 @@ export class TwinklyRestClient {
 		await this.post('led/out/brightness', command)
 	}
 
-	/** Show a solid colour. Verified on Twinkly Pro (firmware 4.1.0) and on Twinkly Squares (firmware 2.11.0). */
+	/** Show a solid color. Verified on Twinkly Pro (firmware 4.1.0) and on Twinkly Squares (firmware 2.11.0). */
 	async setColor(color: RgbColor): Promise<void> {
 		if (this.family === 'pro') {
 			await this.post('application/mode', { mode: 'color', color_config: rgbBody(color) })
 			return
 		}
-		// Consumer lights (verified on Twinkly Squares, firmware 2.11.0): store the colour, then show it
+		// Consumer lights (verified on Twinkly Squares, firmware 2.11.0): store the color, then show it
 		await this.post('led/color', rgbBody(color))
 		await this.post('led/mode', { mode: 'color' })
 	}
 
 	/**
-	 * Change the colour while the lights already show a solid colour. Much faster than `setColor`
+	 * Change the color while the lights already show a solid color. Much faster than `setColor`
 	 * (about 30 ms against 180 ms on PRO firmware 4.1.0), which suits the steps of a fade. It does not
 	 * switch the mode, so use `setColor` first.
 	 */

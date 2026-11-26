@@ -19,7 +19,7 @@ export interface AssumedState {
 	playlistUuid: string
 	brightness: number | null
 	brightnessFilter: 'unknown' | 'enabled' | 'disabled'
-	/** The solid colour shown; null unless in colour mode with a known colour */
+	/** The solid color shown; null unless in color mode with a known color */
 	color: RgbColor | null
 }
 
@@ -36,8 +36,8 @@ export const initialState = (): AssumedState => ({
 })
 
 /**
- * The `color` variable: RRGGBB while in colour mode, empty otherwise. Checking the mode matters because
- * a command that only records the mode (Lights off, Play effect...) leaves an old colour in the state.
+ * The `color` variable: RRGGBB while in color mode, empty otherwise. Checking the mode matters because
+ * a command that only records the mode (Lights off, Play effect...) leaves an old color in the state.
  */
 export const colorVariable = (state: Pick<AssumedState, 'mode' | 'color'>): string =>
 	state.mode === 'color' && state.color !== null ? colorHex(state.color) : ''

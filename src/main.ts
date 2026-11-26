@@ -50,7 +50,7 @@ export { UpgradeScripts }
 export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	config!: ModuleConfig // Setup in init()
 	state: AssumedState = initialState()
-	/** Runs the brightness and colour fades (the controller has no fade command) */
+	/** Runs the brightness and color fades (the controller has no fade command) */
 	readonly fader = new Fader()
 
 	private socket: dgram.Socket | undefined
