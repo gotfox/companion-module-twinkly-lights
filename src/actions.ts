@@ -12,6 +12,7 @@ import {
 	cancelBrightnessFades,
 	cancelColorFades,
 	colorFades,
+	isModePath,
 	setBrightness,
 	setColor,
 	stateApplies,
@@ -328,7 +329,10 @@ export function UpdateActions(self: ModuleInstance): void {
 					if (!Number.isFinite(n)) throw new Error(`"${v}" is not a number`)
 					return t === 'i' ? oscInt(n) : { type: 'f' as const, value: n }
 				})
-				self.sendCommand(self.resolveDeviceId(options), String(options.path).replace(/^\/+/, ''), args)
+				const path = String(options.path).replace(/^\/+/, '')
+				// A raw mode change would otherwise be undone by the next step of a running color fade
+				if (isModePath(path)) cancelColorFades(self)
+				self.sendCommand(self.resolveDeviceId(options), path, args)
 			},
 		},
 

@@ -147,6 +147,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	/** (Re)build transports, the active controller and state reading from the current config. */
 	private async applyConfig(): Promise<void> {
 		const generation = ++this.generation
+		// Fades look up the controller on every step, so one left running would carry on against the new connection
+		this.fader.cancelAll()
 		clearTimeout(this.retryTimer)
 		this.live?.stop()
 		this.live = null

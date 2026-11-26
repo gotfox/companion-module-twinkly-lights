@@ -31,6 +31,9 @@ const channelFor = (prefix: string, host: FadeHost, target: TargetOptions): stri
 export const stateApplies = (host: Pick<FadeHost, 'controller'>, target: TargetOptions): boolean =>
 	host.controller.kind !== 'osc' || target.target === undefined || target.target === 'default'
 
+/** Is this raw OSC path (the part after /v1/<device>/) one that changes the application mode? */
+export const isModePath = (path: string): boolean => /^\/*application\/mode(?:\/|$)/.test(path.trim())
+
 /** Stop running brightness fades on every controller (for example when the filter is toggled). */
 export const cancelBrightnessFades = (host: Pick<FadeHost, 'fader'>): void =>
 	host.fader.cancelMatching(BRIGHTNESS_PREFIX)

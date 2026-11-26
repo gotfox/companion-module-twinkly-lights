@@ -101,9 +101,11 @@ export class Fader {
 			const progress = timing.durationMs > 0 ? Math.min(1, (this.clock.now() - startedAt) / timing.durationMs) : 1
 			const value = progress >= 1 ? to : lerpVector(from, to, progress)
 			if (!sameVector(value, last)) {
-				if (!(await apply(value))) return finish(false)
+				// Record the step before its send finishes: a fade that replaces this one must start from a value
+				// that may already be on its way to the controller, not from the one before it
 				last = value
 				if (isCurrent()) this.runs.set(channel, { id, last: value })
+				if (!(await apply(value))) return finish(false)
 			}
 			if (progress >= 1) return finish(true)
 			// Wait for the next tick on a fixed schedule, so a slow send doesn't add its time to every step,

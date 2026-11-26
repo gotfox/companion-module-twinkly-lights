@@ -9,6 +9,7 @@ import {
 	cancelBrightnessFades,
 	cancelColorFades,
 	colorFades,
+	isModePath,
 	setBrightness,
 	setColor,
 	startBrightness,
@@ -282,6 +283,18 @@ test('a change aimed at another OSC controller is sent but leaves the connection
 	// The connection's own controller still records
 	await setBrightness(host, TARGET, 50, 0)
 	assert.equal(host.state.brightness, 50)
+})
+
+test('a raw OSC path is recognised as a mode change, however it is written', () => {
+	assert.equal(isModePath('application/mode'), true)
+	assert.equal(isModePath('/application/mode'), true)
+	assert.equal(isModePath('//application/mode'), true)
+	assert.equal(isModePath('  application/mode  '), true)
+	assert.equal(isModePath('application/mode/'), true)
+	assert.equal(isModePath('application/modes'), false)
+	assert.equal(isModePath('led/out/brightness'), false)
+	assert.equal(isModePath('movies/current'), false)
+	assert.equal(isModePath(''), false)
 })
 
 test('with REST a target override is ignored, so fades still start from the connection state', () => {

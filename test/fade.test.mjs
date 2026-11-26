@@ -198,6 +198,26 @@ test('cancel() returns the last value the fade sent, so a replacement can start 
 	assert.equal(fader.cancel('b'), undefined, 'nothing is running any more')
 })
 
+test('cancel() includes a step that is still being sent, so a replacement does not start behind it', async () => {
+	const fader = new Fader(fakeClock())
+	let finishSend = () => {}
+	const run = fader.run(
+		'b',
+		[0],
+		[100],
+		{ durationMs: 1000, stepMs: 100 },
+		() =>
+			new Promise((resolve) => {
+				finishSend = () => resolve(true)
+			}),
+	)
+	for (let i = 0; i < 4; i++) await new Promise((r) => setImmediate(r))
+	// The first step (10) is on its way and has not been acknowledged yet
+	assert.deepEqual(fader.cancel('b'), [10])
+	finishSend()
+	assert.equal(await run, false)
+})
+
 test('cancelMatching() stops every fade whose channel starts with the prefix', async () => {
 	const fader = new Fader(fakeClock())
 	const a = fader.run('color:A', [0], [100], { durationMs: 10_000, stepMs: 100 }, async () => true)
