@@ -387,12 +387,12 @@ test('a command to a wildcard replaces fades on the controllers it covers, and t
 	assert.equal(host.sentBrightness.length, sent, 'nothing more was sent by the replaced fade')
 	assert.equal(host.sentBrightness.at(-1).value, 50)
 
-	// And a colour change to one controller replaces a running fade on a wildcard it falls inside
+	// And a color change to one controller replaces a running fade on a wildcard it falls inside
 	const red = { red: 255, green: 0, blue: 0 }
-	const colourHost = fakeHost({ mode: 'color', color: red })
-	const wide = setColor(colourHost, { id: 'TwPROa' }, { red: 0, green: 0, blue: 255 }, 30)
+	const colorHost = fakeHost({ mode: 'color', color: red })
+	const wide = setColor(colorHost, { id: 'TwPROa' }, { red: 0, green: 0, blue: 255 }, 30)
 	await ticks()
-	assert.equal(await setColor(colourHost, { id: 'TwPRO*' }, { red: 0, green: 255, blue: 0 }, 0), true)
+	assert.equal(await setColor(colorHost, { id: 'TwPRO*' }, { red: 0, green: 255, blue: 0 }, 0), true)
 	assert.equal(await wide, false)
 })
 
@@ -401,7 +401,7 @@ test('a wildcard target has no single starting level, so it is sent instantly', 
 	for (const id of ['*', 'TwPRO*']) {
 		assert.equal(brightnessFades(host, { id }, 2, 100), false, `${id}: brightness`)
 		assert.equal(adjustFades(host, { id }, 2, 20), false, `${id}: adjust`)
-		assert.equal(colorFades(host, { id }, 2, { red: 255, green: 0, blue: 0 }), false, `${id}: colour`)
+		assert.equal(colorFades(host, { id }, 2, { red: 255, green: 0, blue: 0 }), false, `${id}: color`)
 	}
 	assert.equal(await setBrightness(host, { id: '*' }, 100, 2), true)
 	assert.deepEqual(host.sentBrightness, [{ mode: 'enabled', type: 'A', value: 100 }])

@@ -358,7 +358,7 @@ test('REST controller runs commands one at a time, so a later command cannot ove
 		host: 'fake',
 		family: 'consumer',
 		selectsByHandle: true,
-		// A consumer colour change is two requests; Lights off must not land between or before them
+		// A consumer color change is two requests; Lights off must not land between or before them
 		setColor: async () => {
 			calls.push('color:start')
 			await new Promise((resolve) => setTimeout(resolve, 40))
