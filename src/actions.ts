@@ -8,8 +8,9 @@ import { MAX_FADE_SECONDS } from './fade.js'
 import {
 	adjustBrightness,
 	adjustFades,
-	BRIGHTNESS_CHANNEL,
 	brightnessFades,
+	cancelBrightnessFades,
+	cancelColorFades,
 	colorFades,
 	setBrightness,
 	setColor,
@@ -97,6 +98,7 @@ export function UpdateActions(self: ModuleInstance): void {
 			description: 'Set application mode to off.',
 			options: [...targetFields],
 			callback: async ({ options }) => {
+				cancelColorFades(self) // a running colour fade would switch the lights back on at its next step
 				if (await self.controller.off(options))
 					self.setState({ mode: 'off', effect: '', effectName: '', playlistName: '', playlistUuid: '' })
 			},
@@ -153,6 +155,7 @@ export function UpdateActions(self: ModuleInstance): void {
 				},
 			],
 			callback: async ({ options }) => {
+				cancelColorFades(self)
 				// Actions saved before "by" existed, or with an unexpected value, play by handle
 				const by = options.by === 'list' || options.by === 'uuid' ? options.by : 'handle'
 				const raw = by === 'list' ? options.listUuid : options.uuid
@@ -187,6 +190,7 @@ export function UpdateActions(self: ModuleInstance): void {
 				{ id: 'index', type: 'number', label: 'Playlist index (0 = first)', default: 0, min: 0, max: 255 },
 			],
 			callback: async ({ options }) => {
+				cancelColorFades(self)
 				const index = clamp(options.index, 0, 255)
 				if (await self.controller.playlist(options, index)) {
 					const known = self.content?.playlists.find((p) => p.index === index)
@@ -217,6 +221,7 @@ export function UpdateActions(self: ModuleInstance): void {
 				},
 			],
 			callback: async ({ options }) => {
+				cancelColorFades(self)
 				const index = clamp(Number(options.index) || 0, 0, 255)
 				if (await self.controller.builtinEffect({}, index)) {
 					self.setState({
@@ -240,7 +245,7 @@ export function UpdateActions(self: ModuleInstance): void {
 			],
 			callback: async ({ options }) => {
 				const value = clamp(options.value, 0, 100)
-				const fades = brightnessFades(self.state, options.fade, value)
+				const fades = brightnessFades(self, options, options.fade, value)
 				await settle(self, fades, setBrightness(self, options, value, options.fade))
 			},
 		},
@@ -256,7 +261,7 @@ export function UpdateActions(self: ModuleInstance): void {
 			],
 			callback: async ({ options }) => {
 				const delta = clamp(options.delta, -100, 100)
-				const fades = adjustFades(self.state, options.fade, delta)
+				const fades = adjustFades(self, options, options.fade, delta)
 				await settle(self, fades, adjustBrightness(self, options, delta, options.fade))
 			},
 		},
@@ -267,7 +272,7 @@ export function UpdateActions(self: ModuleInstance): void {
 				'Enable or disable the brightness filter. Disabling keeps the stored level and sends only "disabled".',
 			options: [...targetFields, { id: 'enabled', type: 'checkbox', label: 'Enabled', default: true }],
 			callback: async ({ options }) => {
-				self.fader.cancel(BRIGHTNESS_CHANNEL)
+				cancelBrightnessFades(self)
 				const mode = options.enabled ? 'enabled' : 'disabled'
 				const value = options.enabled ? (self.state.brightness ?? 100) : 100
 				if (await self.controller.brightness(options, { mode, type: 'A', value })) {
@@ -287,7 +292,7 @@ export function UpdateActions(self: ModuleInstance): void {
 			],
 			callback: async ({ options }) => {
 				const color = rgbFromNumber(Number(options.color))
-				const fades = colorFades(self.state, options.fade, color)
+				const fades = colorFades(self, options, options.fade, color)
 				await settle(self, fades, setColor(self, options, color, options.fade))
 			},
 		},

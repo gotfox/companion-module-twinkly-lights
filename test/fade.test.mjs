@@ -182,6 +182,34 @@ test('starting a new fade on the same channel replaces the old one; other channe
 	assert.ok(slow.length < 10 && slow.at(-1) < 100)
 })
 
+test('cancel() returns the last value the fade sent, so a replacement can start from there', async () => {
+	const fader = new Fader(fakeClock())
+	const sent = []
+	const run = fader.run('b', [0], [100], { durationMs: 10_000, stepMs: 100 }, async (v) => {
+		sent.push(v[0])
+		return true
+	})
+	for (let i = 0; i < 6; i++) await new Promise((r) => setImmediate(r))
+	assert.ok(sent.length >= 2)
+	assert.deepEqual(fader.current('b'), [sent.at(-1)])
+	assert.deepEqual(fader.cancel('b'), [sent.at(-1)])
+	assert.equal(await run, false)
+	assert.equal(fader.current('b'), undefined)
+	assert.equal(fader.cancel('b'), undefined, 'nothing is running any more')
+})
+
+test('cancelMatching() stops every fade whose channel starts with the prefix', async () => {
+	const fader = new Fader(fakeClock())
+	const a = fader.run('color:A', [0], [100], { durationMs: 10_000, stepMs: 100 }, async () => true)
+	const b = fader.run('color:B', [0], [100], { durationMs: 10_000, stepMs: 100 }, async () => true)
+	const other = fader.run('brightness:A', [0], [10], { durationMs: 1000, stepMs: 100 }, async () => true)
+	await new Promise((r) => setImmediate(r))
+	fader.cancelMatching('color:')
+	assert.equal(await a, false)
+	assert.equal(await b, false)
+	assert.equal(await other, true)
+})
+
 test('cancelAll() stops every running fade', async () => {
 	const fader = new Fader(fakeClock())
 	const a = fader.run('a', [0], [100], { durationMs: 10_000, stepMs: 100 }, async () => true)

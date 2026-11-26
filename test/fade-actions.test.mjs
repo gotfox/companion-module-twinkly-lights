@@ -6,6 +6,8 @@ import {
 	adjustBrightness,
 	adjustFades,
 	brightnessFades,
+	cancelBrightnessFades,
+	cancelColorFades,
 	colorFades,
 	setBrightness,
 	setColor,
@@ -47,6 +49,7 @@ function fakeHost(state = {}, kind = 'osc') {
 				return true
 			},
 		},
+		resolveDeviceId: (target) => target?.id ?? 'TwPRO*',
 		setState: (patch) => {
 			host.state = { ...host.state, ...patch }
 		},
@@ -186,23 +189,89 @@ test('a new brightness command cancels a fade that is still running', async () =
 })
 
 test('a change is only reported as a fade when steps will actually be sent', () => {
-	const bright = { ...initialState(), brightness: 100, brightnessFilter: 'enabled' }
-	assert.equal(brightnessFades(bright, 2, 50), true)
-	assert.equal(brightnessFades(bright, 0, 50), false, 'no fade time')
-	assert.equal(brightnessFades(bright, 2, 100), false, 'already at that level')
-	assert.equal(brightnessFades(initialState(), 2, 50), false, 'unknown starting level')
-	assert.equal(adjustFades(bright, 2, -20), true)
-	assert.equal(adjustFades(bright, 2, 20), false, 'clamped to where it already is')
-	assert.equal(adjustFades(initialState(), 2, -20), false)
+	const bright = fakeHost({ brightness: 100, brightnessFilter: 'enabled' })
+	assert.equal(brightnessFades(bright, TARGET, 2, 50), true)
+	assert.equal(brightnessFades(bright, TARGET, 0, 50), false, 'no fade time')
+	assert.equal(brightnessFades(bright, TARGET, 2, 100), false, 'already at that level')
+	assert.equal(brightnessFades(fakeHost({}), TARGET, 2, 50), false, 'unknown starting level')
+	assert.equal(adjustFades(bright, TARGET, 2, -20), true)
+	assert.equal(adjustFades(bright, TARGET, 2, 20), false, 'clamped to where it already is')
+	assert.equal(adjustFades(fakeHost({}), TARGET, 2, -20), false)
 
 	const red = { red: 255, green: 0, blue: 0 }
 	const blue = { red: 0, green: 0, blue: 255 }
-	const inColour = { ...initialState(), mode: 'color', color: red }
-	assert.equal(colorFades(inColour, 2, blue), true)
-	assert.equal(colorFades(inColour, 0, blue), false, 'no fade time')
-	assert.equal(colorFades(inColour, 2, red), false, 'already that colour')
-	assert.equal(colorFades({ ...initialState(), mode: 'movie' }, 2, red), false, 'not in colour mode')
-	assert.equal(colorFades({ ...initialState(), mode: 'color' }, 2, red), false, 'colour not known')
+	const inColour = fakeHost({ mode: 'color', color: red })
+	assert.equal(colorFades(inColour, TARGET, 2, blue), true)
+	assert.equal(colorFades(inColour, TARGET, 0, blue), false, 'no fade time')
+	assert.equal(colorFades(inColour, TARGET, 2, red), false, 'already that colour')
+	assert.equal(colorFades(fakeHost({ mode: 'movie' }), TARGET, 2, red), false, 'not in colour mode')
+	assert.equal(colorFades(fakeHost({ mode: 'color' }), TARGET, 2, red), false, 'colour not known')
+})
+
+const ticks = async (n = 8) => {
+	for (let i = 0; i < n; i++) await new Promise((r) => setImmediate(r))
+}
+
+test('a fade interrupted by another command starts the next one from where it got to', async () => {
+	const host = fakeHost({ brightness: 0, brightnessFilter: 'enabled' })
+	const slow = setBrightness(host, TARGET, 100, 30)
+	await ticks()
+	const reached = host.sentBrightness.at(-1).value
+	assert.ok(reached > 0 && reached < 100, `interrupted at ${reached}`)
+	const before = host.sentBrightness.length
+	assert.equal(await adjustBrightness(host, TARGET, 10, 1), true)
+	assert.equal(await slow, false)
+	const resumed = host.sentBrightness.slice(before).map((c) => c.value)
+	assert.ok(resumed[0] >= reached, `restarted from ${resumed[0]} after being interrupted at ${reached}`)
+	assert.equal(resumed.at(-1), reached + 10)
+})
+
+test('a colour fade interrupted by another colour starts the next fade from the colour it reached', async () => {
+	const red = { red: 255, green: 0, blue: 0 }
+	const host = fakeHost({ mode: 'color', color: red })
+	const slow = setColor(host, TARGET, { red: 0, green: 0, blue: 255 }, 30)
+	await ticks()
+	const reached = host.sentColor.at(-1)
+	assert.ok(reached.red < 255 && reached.blue > 0, 'the first fade made progress')
+	const before = host.sentColor.length
+	assert.equal(await setColor(host, TARGET, { red: 0, green: 255, blue: 0 }, 1), true)
+	assert.equal(await slow, false)
+	const resumed = host.sentColor.slice(before)
+	assert.ok(resumed[0].red <= reached.red, `restarted from red ${resumed[0].red}, was at ${reached.red}`)
+})
+
+test('fades for different controllers run side by side', async () => {
+	const host = fakeHost({ brightness: 100, brightnessFilter: 'enabled' })
+	const a = setBrightness(host, { id: 'A' }, 20, 1)
+	const b = setBrightness(host, { id: 'B' }, 30, 1)
+	assert.equal(await a, true)
+	assert.equal(await b, true)
+})
+
+test('cancelColorFades stops colour fades for every controller and leaves brightness fades alone', async () => {
+	const red = { red: 255, green: 0, blue: 0 }
+	const blue = { red: 0, green: 0, blue: 255 }
+	const host = fakeHost({ mode: 'color', color: red, brightness: 100, brightnessFilter: 'enabled' })
+	const a = setColor(host, { id: 'A' }, blue, 30)
+	const b = setColor(host, { id: 'B' }, blue, 30)
+	const level = setBrightness(host, { id: 'A' }, 50, 1)
+	await ticks()
+	cancelColorFades(host)
+	const sentColors = host.sentColor.length
+	assert.equal(await a, false)
+	assert.equal(await b, false)
+	assert.equal(await level, true, 'the brightness fade carried on')
+	assert.equal(host.sentColor.length, sentColors, 'no colour step was sent after the cancel')
+})
+
+test('cancelBrightnessFades stops brightness fades for every controller', async () => {
+	const host = fakeHost({ brightness: 0, brightnessFilter: 'enabled' })
+	const a = setBrightness(host, { id: 'A' }, 100, 30)
+	const b = setBrightness(host, { id: 'B' }, 100, 30)
+	await ticks()
+	cancelBrightnessFades(host)
+	assert.equal(await a, false)
+	assert.equal(await b, false)
 })
 
 test('setting 100% when the filter is off and the level is already 100% still sends the enabling command', async () => {

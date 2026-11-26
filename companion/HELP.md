@@ -77,7 +77,7 @@ With OSC, every action can override the default target. With REST, commands alwa
 - A fade needs a known starting point: the current brightness (state reading on, or a level you set earlier), or for colour, lights already showing a solid colour. If it isn't known, the change is sent instantly and the log says so.
 - With the brightness filter off, a fade starts from 100%.
 - **Adjust brightness** with a fade becomes a fade to the new absolute level.
-- A fade runs in the background, so the button's other actions don't wait for it. A new brightness or colour command cancels a running fade on that setting, as does the brightness filter action.
+- A fade runs in the background, so the button's other actions don't wait for it. A new brightness or colour command cancels a running fade on that setting, and the new command carries on from where the fade got to instead of jumping back. The brightness filter action cancels brightness fades, and Lights off, Play effect, Start playlist and the built-in effect action cancel colour fades, so a fade can't undo them. Fades for different controllers (OSC targets) run independently.
 - Fades on Twinkly lights (not Pro) look steppy: the lights take about 90 ms to answer a colour update and sometimes stall for up to half a second, so some steps are skipped. Twinkly Pro answers in about 30 ms.
 - OSC fades are a little smoother than REST fades, because REST handles fewer requests a second. A REST colour fade sets the colour with its first step and then uses a faster call for the rest.
 - A colour fade doesn't change brightness, and a brightness fade doesn't change colour.

@@ -36,16 +36,39 @@ export const lerpVector = (from: Vector, to: Vector, t: number): number[] =>
 
 const sameVector = (a: Vector, b: Vector): boolean => a.length === b.length && a.every((v, i) => v === b[i])
 
+/** A fade in progress: which run it is, and the last value it sent. */
+interface ActiveRun {
+	readonly id: number
+	readonly last: Vector
+}
+
 /** Runs fades by channel name. Starting a fade on a channel replaces the one running on it. */
 export class Fader {
-	private readonly runs = new Map<string, number>()
+	private readonly runs = new Map<string, ActiveRun>()
 	private counter = 0
 
 	constructor(private readonly clock: FadeClock = realClock) {}
 
-	/** Stop the fade on this channel before its next step. */
-	cancel(channel: string): void {
+	/**
+	 * Stop the fade on this channel before its next step. Returns the last value it sent (or its start
+	 * value), so whatever replaces it can carry on from there; undefined when nothing was running.
+	 */
+	cancel(channel: string): Vector | undefined {
+		const run = this.runs.get(channel)
 		this.runs.delete(channel)
+		return run?.last
+	}
+
+	/** The last value sent by the fade running on this channel, without stopping it. */
+	current(channel: string): Vector | undefined {
+		return this.runs.get(channel)?.last
+	}
+
+	/** Stop every fade whose channel starts with `prefix`. */
+	cancelMatching(prefix: string): void {
+		for (const channel of [...this.runs.keys()]) {
+			if (channel.startsWith(prefix)) this.runs.delete(channel)
+		}
 	}
 
 	cancelAll(): void {
@@ -65,8 +88,8 @@ export class Fader {
 		apply: (value: Vector) => Promise<boolean>,
 	): Promise<boolean> {
 		const id = ++this.counter
-		this.runs.set(channel, id)
-		const isCurrent = (): boolean => this.runs.get(channel) === id
+		this.runs.set(channel, { id, last: from })
+		const isCurrent = (): boolean => this.runs.get(channel)?.id === id
 		const finish = (result: boolean): boolean => {
 			if (isCurrent()) this.runs.delete(channel)
 			return result
@@ -80,6 +103,7 @@ export class Fader {
 			if (!sameVector(value, last)) {
 				if (!(await apply(value))) return finish(false)
 				last = value
+				if (isCurrent()) this.runs.set(channel, { id, last: value })
 			}
 			if (progress >= 1) return finish(true)
 			// Wait for the next tick on a fixed schedule, so a slow send doesn't add its time to every step,
