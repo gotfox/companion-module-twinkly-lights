@@ -240,6 +240,28 @@ test('a color fade interrupted by another color starts the next fade from the co
 	assert.ok(resumed[0].red <= reached.red, `restarted from red ${resumed[0].red}, was at ${reached.red}`)
 })
 
+test('a fade aimed at another OSC controller does not start from the connection state', async () => {
+	const other = { target: 'device', id: 'B' }
+	const host = fakeHost(
+		{ brightness: 20, brightnessFilter: 'enabled', mode: 'color', color: { red: 0, green: 0, blue: 0 } },
+		'osc',
+	)
+	// The connection's own controller still fades from the state
+	assert.equal(brightnessFades(host, { target: 'default' }, 2, 100), true)
+	assert.equal(brightnessFades(host, TARGET, 2, 100), true)
+	// An override has no known starting point
+	assert.equal(brightnessFades(host, other, 2, 100), false)
+	assert.equal(colorFades(host, other, 2, { red: 255, green: 0, blue: 0 }), false)
+	assert.equal(await setBrightness(host, other, 100, 2), true)
+	assert.deepEqual(host.sentBrightness, [{ mode: 'enabled', type: 'A', value: 100 }])
+	assert.ok(host.logs.some(([level]) => level === 'warn'))
+})
+
+test('with REST a target override is ignored, so fades still start from the connection state', () => {
+	const host = fakeHost({ brightness: 20, brightnessFilter: 'enabled' }, 'rest')
+	assert.equal(brightnessFades(host, { target: 'device', id: 'B' }, 2, 100), true)
+})
+
 test('fades for different controllers run side by side', async () => {
 	const host = fakeHost({ brightness: 100, brightnessFilter: 'enabled' })
 	const a = setBrightness(host, { id: 'A' }, 20, 1)

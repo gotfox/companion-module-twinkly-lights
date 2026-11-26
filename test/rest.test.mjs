@@ -351,6 +351,57 @@ test('REST controller uses the cheaper color update only when the lights already
 	assert.deepEqual(calls, ['mode', 'mode', 'update'])
 })
 
+test('REST controller runs commands one at a time, so a later command cannot overtake a slow one', async () => {
+	const { ContentCache, RestController } = await import('../dist/controller.js')
+	const calls = []
+	const client = {
+		host: 'fake',
+		family: 'consumer',
+		selectsByHandle: true,
+		// A consumer colour change is two requests; Lights off must not land between or before them
+		setColor: async () => {
+			calls.push('color:start')
+			await new Promise((resolve) => setTimeout(resolve, 40))
+			calls.push('color:end')
+		},
+		off: async () => void calls.push('off'),
+	}
+	const ctl = new RestController(
+		client,
+		new ContentCache(client),
+		() => {},
+		() => {},
+	)
+	const color = ctl.color({}, { red: 1, green: 2, blue: 3 })
+	const off = ctl.off({})
+	assert.deepEqual(await Promise.all([color, off]), [true, true])
+	assert.deepEqual(calls, ['color:start', 'color:end', 'off'])
+})
+
+test('a failed REST command does not block the ones queued behind it', async () => {
+	const { ContentCache, RestController } = await import('../dist/controller.js')
+	const calls = []
+	const client = {
+		host: 'fake',
+		family: 'pro',
+		selectsByHandle: false,
+		setColor: async () => {
+			throw new Error('boom')
+		},
+		off: async () => void calls.push('off'),
+	}
+	const ctl = new RestController(
+		client,
+		new ContentCache(client),
+		() => {},
+		() => {},
+	)
+	const color = ctl.color({}, { red: 1, green: 2, blue: 3 })
+	const off = ctl.off({})
+	assert.deepEqual(await Promise.all([color, off]), [false, true])
+	assert.deepEqual(calls, ['off'])
+})
+
 test('REST controller shows a color, and reports a failure instead of throwing', async () => {
 	const { ContentCache, RestController } = await import('../dist/controller.js')
 	const sent = []

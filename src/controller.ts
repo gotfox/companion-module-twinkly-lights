@@ -168,10 +168,32 @@ export class RestController implements Controller {
 		private readonly onSent: () => void,
 	) {}
 
+	/** Tail of the queue of commands to this controller */
+	private tail: Promise<void> = Promise.resolve()
+
+	/**
+	 * Run commands to this controller one at a time. A Twinkly light's color change is two requests, and
+	 * cancelling a fade can't recall one already in flight, so a later Lights off has to wait its turn
+	 * instead of landing in between (or before) them.
+	 */
+	private async inTurn<T>(task: () => Promise<T>): Promise<T> {
+		const previous = this.tail
+		let release: () => void = () => {}
+		this.tail = new Promise<void>((resolve) => {
+			release = resolve
+		})
+		await previous
+		try {
+			return await task()
+		} finally {
+			release()
+		}
+	}
+
 	private async run(what: string, command: () => Promise<void>): Promise<boolean> {
 		try {
 			this.log('debug', `REST -> ${this.client.host}: ${what}`)
-			await command()
+			await this.inTurn(command)
 			this.onSent()
 			return true
 		} catch (e) {

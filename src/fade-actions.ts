@@ -23,6 +23,14 @@ const fromVector = (v: readonly number[]): RgbColor => ({ red: v[0] ?? 0, green:
 const channelFor = (prefix: string, host: FadeHost, target: TargetOptions): string =>
 	prefix + (host.controller.kind === 'osc' ? (host.resolveDeviceId(target) ?? 'invalid') : 'device')
 
+/**
+ * Does the module-wide state describe the controller this action is aimed at? It describes the
+ * connection's own controller, so an OSC action that overrides the target can't start a fade from it.
+ * REST always talks to the connection's controller.
+ */
+const stateApplies = (host: FadeHost, target: TargetOptions): boolean =>
+	host.controller.kind !== 'osc' || target.target === undefined || target.target === 'default'
+
 /** Stop running brightness fades on every controller (for example when the filter is toggled). */
 export const cancelBrightnessFades = (host: Pick<FadeHost, 'fader'>): void =>
 	host.fader.cancelMatching(BRIGHTNESS_PREFIX)
@@ -47,14 +55,15 @@ export function startBrightness(state: Pick<AssumedState, 'brightness' | 'bright
 }
 
 /** Where the brightness is now: the last step of a running fade, otherwise the stored level. */
-const brightnessNow = (host: FadeHost, channel: string): number | null =>
-	host.fader.current(channel)?.[0] ?? startBrightness(host.state)
+const brightnessNow = (host: FadeHost, target: TargetOptions): number | null =>
+	host.fader.current(channelFor(BRIGHTNESS_PREFIX, host, target))?.[0] ??
+	(stateApplies(host, target) ? startBrightness(host.state) : null)
 
 /** The color showing now: the last step of a running fade, otherwise the known solid color. */
-const colorNow = (host: FadeHost, channel: string): RgbColor | null => {
-	const running = host.fader.current(channel)
+const colorNow = (host: FadeHost, target: TargetOptions): RgbColor | null => {
+	const running = host.fader.current(channelFor(COLOR_PREFIX, host, target))
 	if (running) return fromVector(running)
-	return host.state.mode === 'color' ? host.state.color : null
+	return stateApplies(host, target) && host.state.mode === 'color' ? host.state.color : null
 }
 
 /**
@@ -62,19 +71,19 @@ const colorNow = (host: FadeHost, channel: string): RgbColor | null => {
  * nothing to fade (already at the target), in which case one command is sent at once instead.
  */
 export function brightnessFades(host: FadeHost, target: TargetOptions, fadeSeconds: number, value: number): boolean {
-	const from = brightnessNow(host, channelFor(BRIGHTNESS_PREFIX, host, target))
+	const from = brightnessNow(host, target)
 	return fadeSeconds > 0 && from !== null && from !== value
 }
 
 /** Will a relative brightness change by `delta` run as a fade? */
 export function adjustFades(host: FadeHost, target: TargetOptions, fadeSeconds: number, delta: number): boolean {
-	const from = brightnessNow(host, channelFor(BRIGHTNESS_PREFIX, host, target))
+	const from = brightnessNow(host, target)
 	return from !== null && brightnessFades(host, target, fadeSeconds, clampPercent(from + delta))
 }
 
 /** Will this color change run as a fade? Only from a known solid color, and only to a different one. */
 export function colorFades(host: FadeHost, target: TargetOptions, fadeSeconds: number, color: RgbColor): boolean {
-	const from = colorNow(host, channelFor(COLOR_PREFIX, host, target))
+	const from = colorNow(host, target)
 	return fadeSeconds > 0 && from !== null && !sameColor(from, color)
 }
 
@@ -97,7 +106,7 @@ export async function setBrightness(
 		host.controller.brightness(target, { mode: 'enabled', type: 'A', value: level })
 	const record = (): void => host.setState({ brightness: value, brightnessFilter: 'enabled' })
 
-	const from = interrupted?.[0] ?? startBrightness(host.state)
+	const from = interrupted?.[0] ?? (stateApplies(host, target) ? startBrightness(host.state) : null)
 	if (from !== null && fadeSeconds > 0 && from !== value) {
 		const reached = await host.fader.run(channel, [from], [value], timing(host, fadeSeconds), async (level) =>
 			send(level[0] ?? value),
@@ -120,7 +129,7 @@ export async function adjustBrightness(
 	fadeSeconds: number,
 ): Promise<boolean> {
 	const channel = channelFor(BRIGHTNESS_PREFIX, host, target)
-	const from = brightnessNow(host, channel)
+	const from = brightnessNow(host, target)
 	if (fadeSeconds > 0 && from !== null) {
 		return setBrightness(host, target, clampPercent(from + delta), fadeSeconds)
 	}
@@ -151,7 +160,7 @@ export async function setColor(
 		host.controller.color(target, c, { alreadySolid })
 	const record = (): void => host.setState({ mode: 'color', color })
 
-	const from = interrupted ? fromVector(interrupted) : host.state.mode === 'color' ? host.state.color : null
+	const from = interrupted ? fromVector(interrupted) : colorNow(host, target)
 	if (from !== null && fadeSeconds > 0 && !sameColor(from, color)) {
 		// The first step sets the color mode; the rest use the cheaper update, which keeps REST steps fast
 		let firstStep = true
