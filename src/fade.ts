@@ -64,10 +64,10 @@ export class Fader {
 		return this.runs.get(channel)?.last
 	}
 
-	/** Stop every fade whose channel starts with `prefix`. */
-	cancelMatching(prefix: string): void {
+	/** Stop every fade whose channel the predicate accepts. */
+	cancelWhere(matches: (channel: string) => boolean): void {
 		for (const channel of [...this.runs.keys()]) {
-			if (channel.startsWith(prefix)) this.runs.delete(channel)
+			if (matches(channel)) this.runs.delete(channel)
 		}
 	}
 

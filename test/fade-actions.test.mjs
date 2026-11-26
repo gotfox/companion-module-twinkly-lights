@@ -14,6 +14,7 @@ import {
 	setColor,
 	startBrightness,
 	stateApplies,
+	targetsOverlap,
 } from '../dist/fade-actions.js'
 
 const fakeClock = () => {
@@ -318,7 +319,7 @@ test('cancelColorFades stops color fades for every controller and leaves brightn
 	const b = setColor(host, { id: 'B' }, blue, 30)
 	const level = setBrightness(host, { id: 'A' }, 50, 1)
 	await ticks()
-	cancelColorFades(host)
+	cancelColorFades(host, { id: '*' })
 	const sentColors = host.sentColor.length
 	assert.equal(await a, false)
 	assert.equal(await b, false)
@@ -331,9 +332,57 @@ test('cancelBrightnessFades stops brightness fades for every controller', async 
 	const a = setBrightness(host, { id: 'A' }, 100, 30)
 	const b = setBrightness(host, { id: 'B' }, 100, 30)
 	await ticks()
-	cancelBrightnessFades(host)
+	cancelBrightnessFades(host, { id: '*' })
 	assert.equal(await a, false)
 	assert.equal(await b, false)
+})
+
+test('which OSC device IDs overlap: wildcards cover what they match, exact IDs only themselves', () => {
+	assert.equal(targetsOverlap('*', 'TwPRO1'), true)
+	assert.equal(targetsOverlap('TwPRO1', '*'), true)
+	assert.equal(targetsOverlap('*', '*'), true)
+	assert.equal(targetsOverlap('TwPRO*', 'TwPRO304950a00f6c'), true)
+	assert.equal(targetsOverlap('TwPRO304950a00f6c', 'TwPRO*'), true)
+	assert.equal(targetsOverlap('TwPRO*', 'TwPLUS*'), false)
+	assert.equal(targetsOverlap('TwPRO*', 'TwPLUSabc'), false)
+	assert.equal(targetsOverlap('TwPRO1', 'TwPRO1'), true)
+	assert.equal(targetsOverlap('TwPRO1', 'TwPRO2'), false)
+	assert.equal(targetsOverlap('TwPRO3*', 'TwPRO*'), true, 'a narrower wildcard sits inside a wider one')
+})
+
+test('cancelling is limited to the targets the command reaches', async () => {
+	const host = fakeHost({ brightness: 0, brightnessFilter: 'enabled' })
+	const a = setBrightness(host, { id: 'TwPROa' }, 100, 30)
+	const b = setBrightness(host, { id: 'TwPROb' }, 100, 30)
+	const plus = setBrightness(host, { id: 'TwPLUSc' }, 100, 30)
+	await ticks()
+	cancelBrightnessFades(host, { id: 'TwPROb' })
+	assert.equal(await b, false, 'the targeted controller stopped')
+	cancelBrightnessFades(host, { id: 'TwPRO*' })
+	assert.equal(await a, false, 'a wildcard reaches every PRO')
+	cancelBrightnessFades(host, { id: 'TwPLUSc' })
+	assert.equal(await plus, false)
+})
+
+test('a command aimed at one controller leaves fades on unrelated controllers running', async () => {
+	const red = { red: 255, green: 0, blue: 0 }
+	const blue = { red: 0, green: 0, blue: 255 }
+	const host = fakeHost({ mode: 'color', color: red })
+	const a = setColor(host, { id: 'TwPROa' }, blue, 30)
+	const b = setColor(host, { id: 'TwPROb' }, { red: 0, green: 255, blue: 0 }, 1)
+	await ticks()
+	cancelColorFades(host, { id: 'TwPROa' })
+	assert.equal(await a, false)
+	assert.equal(await b, true, 'the other controller carried on to its target')
+})
+
+test('a command that cannot be addressed cancels nothing', async () => {
+	const host = fakeHost({ brightness: 0, brightnessFilter: 'enabled' })
+	const run = setBrightness(host, { id: 'TwPROa' }, 100, 1)
+	await ticks()
+	host.resolveDeviceId = () => null // for example a specific controller with an invalid MAC
+	cancelBrightnessFades(host, { id: 'x' })
+	assert.equal(await run, true)
 })
 
 test('setting 100% when the filter is off and the level is already 100% still sends the enabling command', async () => {

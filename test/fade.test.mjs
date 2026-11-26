@@ -218,13 +218,13 @@ test('cancel() includes a step that is still being sent, so a replacement does n
 	assert.equal(await run, false)
 })
 
-test('cancelMatching() stops every fade whose channel starts with the prefix', async () => {
+test('cancelWhere() stops every fade whose channel the predicate accepts', async () => {
 	const fader = new Fader(fakeClock())
 	const a = fader.run('color:A', [0], [100], { durationMs: 10_000, stepMs: 100 }, async () => true)
 	const b = fader.run('color:B', [0], [100], { durationMs: 10_000, stepMs: 100 }, async () => true)
 	const other = fader.run('brightness:A', [0], [10], { durationMs: 1000, stepMs: 100 }, async () => true)
 	await new Promise((r) => setImmediate(r))
-	fader.cancelMatching('color:')
+	fader.cancelWhere((channel) => channel.startsWith('color:'))
 	assert.equal(await a, false)
 	assert.equal(await b, false)
 	assert.equal(await other, true)

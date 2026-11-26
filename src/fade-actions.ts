@@ -34,15 +34,54 @@ export const stateApplies = (host: Pick<FadeHost, 'controller'>, target: TargetO
 /** Is this raw OSC path (the part after /v1/<device>/) one that changes the application mode? */
 export const isModePath = (path: string): boolean => /^\/*application\/mode(?:\/|$)/.test(path.trim())
 
-/** Stop running brightness fades on every controller (for example when the filter is toggled). */
-export const cancelBrightnessFades = (host: Pick<FadeHost, 'fader'>): void =>
-	host.fader.cancelMatching(BRIGHTNESS_PREFIX)
+const wildcardPrefix = (id: string): string | null => (id.endsWith('*') ? id.slice(0, -1) : null)
 
 /**
- * Stop running color fades on every controller. Each color step (over OSC) switches the controller to
- * color mode, so a fade left running would undo Lights off, Play effect or Start playlist.
+ * Do two OSC device IDs address any controller in common? A trailing `*` matches any ending (`*` is
+ * everything, `TwPRO*` every PRO); anything else is one controller.
  */
-export const cancelColorFades = (host: Pick<FadeHost, 'fader'>): void => host.fader.cancelMatching(COLOR_PREFIX)
+export function targetsOverlap(a: string, b: string): boolean {
+	const prefixA = wildcardPrefix(a)
+	const prefixB = wildcardPrefix(b)
+	if (prefixA !== null && prefixB !== null) return prefixA.startsWith(prefixB) || prefixB.startsWith(prefixA)
+	if (prefixA !== null) return b.startsWith(prefixA)
+	if (prefixB !== null) return a.startsWith(prefixB)
+	return a === b
+}
+
+/**
+ * Stop the running fades of one kind that a command aimed at `target` would collide with: every one
+ * on REST (a single device), and over OSC those on controllers the target's device ID reaches. A
+ * command that can't be addressed isn't sent, so it cancels nothing.
+ */
+function cancelFades(
+	host: Pick<FadeHost, 'fader' | 'controller' | 'resolveDeviceId'>,
+	prefix: string,
+	target: TargetOptions,
+): void {
+	if (host.controller.kind !== 'osc') {
+		host.fader.cancelWhere((channel) => channel.startsWith(prefix))
+		return
+	}
+	const id = host.resolveDeviceId(target)
+	if (id === null) return
+	host.fader.cancelWhere((channel) => channel.startsWith(prefix) && targetsOverlap(channel.slice(prefix.length), id))
+}
+
+/** Stop running brightness fades on the controllers this command reaches (for example the filter toggle). */
+export const cancelBrightnessFades = (
+	host: Pick<FadeHost, 'fader' | 'controller' | 'resolveDeviceId'>,
+	target: TargetOptions,
+): void => cancelFades(host, BRIGHTNESS_PREFIX, target)
+
+/**
+ * Stop running color fades on the controllers this command reaches. Each color step (over OSC) switches
+ * the controller to color mode, so a fade left running would undo Lights off, Play effect or Start playlist.
+ */
+export const cancelColorFades = (
+	host: Pick<FadeHost, 'fader' | 'controller' | 'resolveDeviceId'>,
+	target: TargetOptions,
+): void => cancelFades(host, COLOR_PREFIX, target)
 
 const timing = (host: FadeHost, fadeSeconds: number) => ({
 	durationMs: fadeSeconds * MS_PER_SECOND,
