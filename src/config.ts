@@ -96,7 +96,7 @@ export function GetConfigFields(
 			label: 'Discovered device',
 			tooltip:
 				'Twinkly devices found on the network (scanned when the connection starts and every 5 minutes, or with the ' +
-				'"Scan network" action). Saving a choice fills in the IP, device type and target below, and the connection ' +
+				'"Rescan network" action). Saving a choice fills in the IP, device type and target below, and the connection ' +
 				'follows the device if its IP changes. For a group, choosing any member uses the group master.',
 			width: 12,
 			choices: discoveredChoices,

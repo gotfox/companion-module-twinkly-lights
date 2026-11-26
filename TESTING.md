@@ -88,7 +88,7 @@ Write down: whether the playlist starts, and whether the index value changes whi
 
 Verified on PRO hardware; repeat on any other model (PLUS, Lightwall, MAX) to see how it replies.
 
-1. In Companion, press a button with **Scan network for controllers**. Wait about 5 seconds.
+1. In Companion, press a button with **Rescan network for controllers**. Wait about 5 seconds.
 2. Read the module log. Each reply shows the IP, the type (Twinkly Pro, Twinkly, or unrecognised), the name and the raw hex. Pro controllers also get a suggested device ID.
 3. Compare each suggested ID with the MAC shown in the Twinkly Pro app. The name suffix should equal the last 3 bytes of the MAC and the ID should be `TwPRO` followed by the full MAC.
 
@@ -267,9 +267,24 @@ Driven from a script that used the module's compiled `OscController`, `RestContr
 
 Found along the way:
 
-- A REST colour fade (green to magenta, 4 s, 250 ms steps) took 4.4 s because the last sleep was a full step. Fades now sleep only for the time left, and never for a negative time when a slow send overruns the end. Both have unit tests. The REST colour fade at 125 ms was not watched.
+- A REST colour fade (green to magenta, 4 s) took 4.4 s and looked steppier than the REST brightness fades, even at 125 ms steps. Timing each call explains it: `POST application/mode` with a colour takes about **180 ms**, against about 28 ms for a brightness POST and about 35 ms for a GET. While the lights already show a solid colour, `POST led/color {"red","green","blue"}` works too, reads back correctly and takes about **28 ms**. A colour fade therefore sets the colour mode with its first step and uses `led/color` for the rest. Steps also run on a fixed schedule now, instead of sleeping a full step after each send, and a fade never sleeps for a negative time when a slow send overruns the end. All three have unit tests.
+- Re-run after those changes, a REST colour fade from magenta to green over 4 s took 4.0 s and looked noticeably smoother, with two stutters.
 - The REST read-back often returned `401` while a fade was running: another REST client was logging in and ending the module's login (see Known limitations).
 - A first attempt to drive the module sent nothing, because the test script closed its UDP socket before the datagram left. The packet itself was correct.
+
+#### 2026-11-26: Solid colour on Twinkly Squares (TWQ064STW, firmware 2.11.0)
+
+Probed with the module's REST client (consumer family), watching the Squares, which were off to start with:
+
+| Request                                                                          | Result                                                                                                                                      |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST led/color {"red":255,"green":0,"blue":0}`, then `POST led/mode {"mode":"color"}` | Pass. Solid red. `led/mode` then reads `mode: color` with a `color_config` (red 255, green 1, blue 1, hue 0, saturation 254).        |
+| `POST led/color {"red":0,"green":0,"blue":255}` alone, while in colour mode      | Pass. Changed to solid blue.                                                                                                                |
+| Timing                                                                           | `POST led/color` median about 88 ms (max 226 ms) and `GET led/mode` about 100 ms, slower than on Pro.                                         |
+
+The controller rounds colours a little (saturation 254, and a stored 0, 17, 200 read back as 0, 21, 200). One restore failed with `verify: controller returned code 1102`, probably another client logging in at the same moment, and a retry worked.
+
+Colour fade through the module's own `RestController` and fade helpers (red to blue, 4 s, 125 ms steps): it took 4.1 s but looked **steppy**. A single `led/color` jump snaps to the new colour, so the Squares don't smooth between updates. Logging the sends showed why: 23 updates in 4 s instead of 32, with a median gap of 126 ms but a worst gap of 500 ms. The Squares usually answer a colour update in about 90 ms but sometimes stall for 250-500 ms, which skips several steps at once. A second run looked a little better. Fades on Twinkly lights over REST are limited by the light's response time, so they look coarser than on Pro (about 28 ms per colour update).
 
 ## Open items
 
@@ -283,8 +298,8 @@ As of 2026-11-26, after the hardware tests above.
 
 ### Not yet tested on hardware
 
-- **Solid colour on Twinkly lights (not Pro).** The module refuses it. The consumer API's `led/color` and `led/mode` calls aren't tested on firmware 2.11.0.
-- **A REST colour fade at 125 ms steps**, and a colour fade over a broadcast address with assumed state.
+- **Solid colour on other Twinkly lights.** Verified on the Squares only, including a colour fade (steppy, see above). The Line (TWL100STW, family S) hasn't been tried.
+- **A colour fade over a broadcast address with assumed state.** The fades above were run with a controller IP.
 - **PLUS, Lightwall and MAX models** (any method). To check on each:
   - the OSC device ID prefix (`TwPLUS` for PLUS and Lightwall is assumed from the guide)
   - whether the MAC starts with `304950` (only confirmed on PRO)

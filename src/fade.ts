@@ -82,9 +82,13 @@ export class Fader {
 				last = value
 			}
 			if (progress >= 1) return finish(true)
-			// Never sleep past the end, so the last value goes out on time instead of up to a step late
-			const remainingMs = timing.durationMs - (this.clock.now() - startedAt)
-			await this.clock.sleep(Math.max(0, Math.min(timing.stepMs, remainingMs)))
+			// Wait for the next tick on a fixed schedule, so a slow send doesn't add its time to every step,
+			// and never sleep past the end, so the last value goes out on time
+			const elapsedMs = this.clock.now() - startedAt
+			const stepMs = Math.max(1, timing.stepMs)
+			const untilNextTickMs = (Math.floor(elapsedMs / stepMs) + 1) * stepMs - elapsedMs
+			const remainingMs = timing.durationMs - elapsedMs
+			await this.clock.sleep(Math.max(0, Math.min(untilNextTickMs, remainingMs)))
 		}
 		return false
 	}

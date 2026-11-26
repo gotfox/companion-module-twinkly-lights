@@ -266,7 +266,7 @@ export function UpdateActions(self: ModuleInstance): void {
 		color_set: {
 			name: 'Set colour',
 			description:
-				'Show a solid colour (Twinkly Pro; verified on firmware 4.1.0). Optionally fade from the colour already showing; a fade needs the lights to be in a known solid colour, otherwise the change is instant.',
+				'Show a solid colour. Verified on Twinkly Pro (firmware 4.1.0) and Twinkly Squares (firmware 2.11.0, REST only). Optionally fade from the colour already showing; a fade needs the lights to be in a known solid colour, otherwise the change is instant.',
 			options: [
 				...targetFields,
 				{ id: 'color', type: 'colorpicker', label: 'Colour', default: 0xff0000, returnType: 'number' },
@@ -313,9 +313,9 @@ export function UpdateActions(self: ModuleInstance): void {
 		},
 
 		scan: {
-			name: 'Scan network for controllers',
+			name: 'Rescan network for controllers',
 			description:
-				'Broadcasts a discovery probe on UDP 5555 to every network interface and logs the controllers that reply: name, model, group role and OSC status, and a suggested OSC device ID for Pro controllers. Twinkly Pro does not document this; it was verified on PRO controllers only. Twinkly lights also reply; they have no OSC.',
+				'Scans the network again to refresh the "Discovered device" list in the connection settings, and logs each controller that replies: name, model, group role and OSC status, and a suggested OSC device ID for Pro controllers. Twinkly Pro does not document the scan; it was verified on PRO controllers only. Twinkly lights also reply; they have no OSC.',
 			options: [],
 			callback: async () => runScan(self),
 		},

@@ -47,6 +47,24 @@ test('a fade ends on time even when the duration is not a multiple of the step',
 	assert.equal(finishedAt, 1000)
 })
 
+test('steps keep a steady rate when each send takes time, instead of adding the send time to every step', async () => {
+	let t = 0
+	const clock = {
+		now: () => t,
+		sleep: async (ms) => {
+			t += Math.max(0, ms)
+		},
+	}
+	const fader = new Fader(clock)
+	const sentAt = []
+	await fader.run('b', [0], [100], { durationMs: 500, stepMs: 100 }, async () => {
+		sentAt.push(t)
+		t += 30 // each send takes 30 ms
+		return true
+	})
+	assert.deepEqual(sentAt, [100, 200, 300, 400, 500])
+})
+
 test('a send that overruns the fade never makes the fader sleep for a negative time', async () => {
 	let t = 0
 	const sleeps = []

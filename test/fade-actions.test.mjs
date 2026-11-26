@@ -25,6 +25,7 @@ function fakeHost(state = {}, kind = 'osc') {
 		fader: new Fader(fakeClock()),
 		sentBrightness: [],
 		sentColor: [],
+		sentColorOptions: [],
 		logs: [],
 		controller: {
 			kind,
@@ -32,8 +33,9 @@ function fakeHost(state = {}, kind = 'osc') {
 				host.sentBrightness.push(command)
 				return true
 			},
-			color: async (_target, color) => {
+			color: async (_target, color, options) => {
 				host.sentColor.push(color)
+				host.sentColorOptions.push(options)
 				return true
 			},
 		},
@@ -140,6 +142,20 @@ test('a colour fade runs from the current colour when already in colour mode', a
 	const reds = host.sentColor.map((c) => c.red)
 	assert.deepEqual(reds, [...reds].sort((a, b) => a - b))
 	assert.deepEqual(host.state.color, { red: 100, green: 50, blue: 0 })
+})
+
+test('a colour fade sets the colour first, then uses the cheaper update for the remaining steps', async () => {
+	const host = fakeHost({ mode: 'color', color: { red: 0, green: 0, blue: 0 } }, 'rest')
+	await setColor(host, TARGET, { red: 100, green: 0, blue: 0 }, 1)
+	assert.ok(host.sentColorOptions.length > 2)
+	assert.deepEqual(host.sentColorOptions[0], { alreadySolid: false })
+	assert.ok(host.sentColorOptions.slice(1).every((o) => o.alreadySolid === true))
+})
+
+test('an instant colour change always sets the mode', async () => {
+	const host = fakeHost({ mode: 'color', color: { red: 1, green: 1, blue: 1 } })
+	await setColor(host, TARGET, { red: 9, green: 9, blue: 9 }, 0)
+	assert.deepEqual(host.sentColorOptions, [{ alreadySolid: false }])
 })
 
 test('a colour fade outside colour mode is sent instantly, with a warning', async () => {

@@ -17,7 +17,10 @@ export async function discover(
 const familyLabel = (d: DiscoveredDevice): string =>
 	d.family === 'pro' ? 'Twinkly Pro' : d.family === 'consumer' ? 'Twinkly (no OSC; use REST)' : 'unrecognised'
 
-/** Scan action: discover controllers, ask each Pro controller for its details, and log the results. */
+/**
+ * Rescan action: discover controllers again (refreshing the "Discovered device" list), ask each Pro
+ * controller for its details, and log the results.
+ */
 export async function runScan(self: ModuleInstance): Promise<void> {
 	self.log('info', 'Scanning for controllers on UDP 5555...')
 	try {
@@ -47,15 +50,6 @@ export async function runScan(self: ModuleInstance): Promise<void> {
 
 		const pro = described.filter((x) => x.device.family === 'pro')
 		self.log('info', `Scan finished: ${pro.length} Pro controller(s), ${devices.length - pro.length} other.`)
-		self.setVariableValues({
-			discovered_devices: pro
-				.map(({ device: d, gestalt }) => {
-					const name = gestalt?.deviceName ? ` "${gestalt.deviceName}"` : ''
-					const role = gestalt && gestalt.groupRole !== 'none' ? ` (${gestalt.groupRole})` : ''
-					return `${d.address} ${d.suggestedId ?? d.name ?? ''}${name}${role}`.trim()
-				})
-				.join(', '),
-		})
 	} catch (e) {
 		self.log('error', `Scan failed: ${String(e)}`)
 	}

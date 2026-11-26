@@ -17,6 +17,12 @@ import {
 	type PlaylistInfo,
 } from './rest-parse.js'
 
+const rgbBody = (c: RgbColor): { red: number; green: number; blue: number } => ({
+	red: c.red,
+	green: c.green,
+	blue: c.blue,
+})
+
 /**
  * Client for a Twinkly controller's local REST API on port 80.
  *
@@ -177,15 +183,24 @@ export class TwinklyRestClient {
 		await this.post('led/out/brightness', command)
 	}
 
-	/** Show a solid colour. Verified on Pro; consumer lights use a different call that hasn't been tested. */
+	/** Show a solid colour. Verified on Twinkly Pro (firmware 4.1.0) and on Twinkly Squares (firmware 2.11.0). */
 	async setColor(color: RgbColor): Promise<void> {
-		if (this.family !== 'pro') {
-			throw new Error('solid colour is only supported on Twinkly Pro (consumer lights are untested)')
+		if (this.family === 'pro') {
+			await this.post('application/mode', { mode: 'color', color_config: rgbBody(color) })
+			return
 		}
-		await this.post('application/mode', {
-			mode: 'color',
-			color_config: { red: color.red, green: color.green, blue: color.blue },
-		})
+		// Consumer lights (verified on Twinkly Squares, firmware 2.11.0): store the colour, then show it
+		await this.post('led/color', rgbBody(color))
+		await this.post('led/mode', { mode: 'color' })
+	}
+
+	/**
+	 * Change the colour while the lights already show a solid colour. Much faster than `setColor`
+	 * (about 30 ms against 180 ms on PRO firmware 4.1.0), which suits the steps of a fade. It does not
+	 * switch the mode, so use `setColor` first.
+	 */
+	async updateColor(color: RgbColor): Promise<void> {
+		await this.post('led/color', rgbBody(color))
 	}
 
 	/** Request with a valid token, logging in again once if the controller rejects it. */

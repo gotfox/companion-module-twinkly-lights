@@ -36,7 +36,7 @@ Whichever method you choose, the module can **read the real state** from the con
 
 ### Configuration
 
-- **Discovered device**: the Twinkly objects on your network: each group (listed under its master controller, with its members) and each standalone device. Group members aren't listed separately, because they may ignore commands sent to them directly. One is shown only if its group's master wasn't found. Choose an object and save, and the module fills in the IP, the device type and (for Pro) the OSC target. Twinkly lights are also switched to REST. Entries use the master controller's name, because the object's own name isn't available from the device. The connection remembers the device itself, not its IP, so it follows the device if DHCP gives it a new address. The list comes from a scan when the connection starts and every 5 minutes, or from the **Scan network** action. If the list is empty, close and reopen the connection's settings after a few seconds. Choose **Enter the address manually** to type the settings yourself.
+- **Discovered device**: the Twinkly objects on your network: each group (listed under its master controller, with its members) and each standalone device. Group members aren't listed separately, because they may ignore commands sent to them directly. One is shown only if its group's master wasn't found. Choose an object and save, and the module fills in the IP, the device type and (for Pro) the OSC target. Twinkly lights are also switched to REST. Entries use the master controller's name, because the object's own name isn't available from the device. The connection remembers the device itself, not its IP, so it follows the device if DHCP gives it a new address. The list comes from a scan when the connection starts and every 5 minutes, or from the **Rescan network** action. If the list is empty, close and reopen the connection's settings after a few seconds. Choose **Enter the address manually** to type the settings yourself.
 - **Control method**: OSC or REST.
 - **Address**: shown only when no discovered device is chosen. It lists only the addresses that work with the chosen control method, and you can also type one.
   - With **REST** it's **Device IP**: one entry per object (a group's master, or a standalone device).
@@ -58,7 +58,7 @@ With OSC, every action can override the default target. With REST, commands alwa
 - **Set brightness** (absolute 0-100), **Adjust brightness** (relative -100..100), **Brightness filter on/off**
 - **Set colour**: show a solid colour (Twinkly Pro). Brightness and colour changes can be **faded**; see below.
 - **Send raw OSC** to `/v1/<device_id>/<path>`. This works in either mode.
-- **Scan network for controllers**: see below.
+- **Rescan network for controllers**: refreshes the discovered list and logs each controller's details; see below.
 
 **Play effect** can pick the effect by:
 
@@ -70,7 +70,7 @@ With OSC, every action can override the default target. With REST, commands alwa
 
 **Brightness over OSC** goes to `led/out/brightness`, as in Twinkly's "Third-party Controls" guide. Absolute and relative changes and the on/off filter were verified on PRO firmware 4.1.0.
 
-**Set colour** shows a solid colour, chosen with Companion's colour picker (or an expression). OSC sends `application/mode color R G B` (three integers, 0-255) and REST posts `application/mode` with the colour inside `color_config`. Both were verified on PRO firmware 4.1.0. Twinkly's guide lists a `color` mode but gives no arguments for it, so this form was found by testing; a bare `color` does nothing. Twinkly lights (not Pro) aren't supported yet, because their colour call hasn't been tested. With state reading on, the `mode` variable shows `color` and the `color` variable shows the colour as `RRGGBB`. The **Colour matches** feedback and the **Colours** presets use it.
+**Set colour** shows a solid colour, chosen with Companion's colour picker (or an expression). OSC sends `application/mode color R G B` (three integers, 0-255) and REST posts `application/mode` with the colour inside `color_config`. Both were verified on PRO firmware 4.1.0. Twinkly's guide lists a `color` mode but gives no arguments for it, so this form was found by testing; a bare `color` does nothing. On Twinkly lights (REST only) it posts `led/color` and then switches `led/mode` to `color`. That was verified on Twinkly Squares (firmware 2.11.0) but not yet on other models such as the Line. With state reading on, the `mode` variable shows `color` and the `color` variable shows the colour as `RRGGBB`. The **Colour matches** feedback and the **Colours** presets use it.
 
 **Fades:** Set brightness, Adjust brightness and Set colour have a **Fade time** in seconds (0 is instant). The controller has no fade command, so Companion sends small steps: about 20 a second with OSC and 8 a second with REST. Verified on PRO firmware 4.1.0 with both trees of a group.
 
@@ -78,7 +78,8 @@ With OSC, every action can override the default target. With REST, commands alwa
 - With the brightness filter off, a fade starts from 100%.
 - **Adjust brightness** with a fade becomes a fade to the new absolute level.
 - A fade runs in the background, so the button's other actions don't wait for it. A new brightness or colour command cancels a running fade on that setting, as does the brightness filter action.
-- OSC fades look smoother than REST fades, because REST handles fewer requests a second.
+- Fades on Twinkly lights (not Pro) look steppy: the lights take about 90 ms to answer a colour update and sometimes stall for up to half a second, so some steps are skipped. Twinkly Pro answers in about 30 ms.
+- OSC fades are a little smoother than REST fades, because REST handles fewer requests a second. A REST colour fade sets the colour with its first step and then uses a faster call for the rest.
 - A colour fade doesn't change brightness, and a brightness fade doesn't change colour.
 
 ### State: read back or assumed
@@ -87,7 +88,7 @@ When the address is a controller IP and state reading is on, the module asks the
 
 Without state reading, for example with a broadcast address, the module can only show what it **last sent**. OSC gets no replies. The `state_source` variable shows `controller` or `assumed`.
 
-Variables: `mode`, `effect` (handle), `effect_name`, `playlist_name`, `brightness`, `brightness_filter`, `color`, `state_source`, `target`, `discovered_devices`.
+Variables: `mode`, `effect` (handle), `effect_name`, `playlist_name`, `brightness`, `brightness_filter`, `color`, `state_source`, `target`.
 
 ### Controller IPs and groups
 
@@ -98,7 +99,7 @@ Variables: `mode`, `effect` (handle), `effect_name`, `playlist_name`, `brightnes
 
 ### Discovery
 
-Twinkly doesn't document discovery, but Pro controllers answer the same UDP broadcast probe (port 5555) as Twinkly lights. The **Scan network for controllers** action broadcasts it on every network interface and writes the replies to the module log. For each Pro controller it also reads the controller's name as set in the app, its model, its group role (master, slave, or not in a group), and whether OSC and Art-Net are on. This step needs no login.
+Twinkly doesn't document discovery, but Pro controllers answer the same UDP broadcast probe (port 5555) as Twinkly lights. The **Rescan network for controllers** action broadcasts it on every network interface, refreshes the **Discovered device** list and writes the replies to the module log. For each Pro controller it also reads the controller's name as set in the app, its model, its group role (master, slave, or not in a group), and whether OSC and Art-Net are on. This step needs no login.
 
 - Twinkly Pro controllers reply with a name like `TwPRO_a00f6c`. The suffix is the last 3 bytes of the controller's MAC address. The log shows a **suggested device ID** (e.g. `TwPRO304950a00f6c`). The `304950` prefix comes from Twinkly's OSC guide and was confirmed on three PRO controllers (TWPRO1500ETHP). Other models may differ, so check the suggestion against the MAC in the Twinkly Pro app before relying on it.
 - Twinkly lights (`Twinkly_XXXXXX`) also reply. They have no OSC; use them with the REST control method.

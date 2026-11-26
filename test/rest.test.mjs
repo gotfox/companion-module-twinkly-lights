@@ -133,7 +133,7 @@ test('rejects malformed or failed responses', () => {
 
 /** Minimal fake controller: login/verify, one protected GET and one POST, 401 without a valid token. */
 function fakeController() {
-	const state = { logins: 0, token: '', posts: [] }
+	const state = { logins: 0, token: '', posts: [], colorPosts: [] }
 	const server = http.createServer((req, res) => {
 		let body = ''
 		req.on('data', (c) => (body += c))
@@ -160,6 +160,10 @@ function fakeController() {
 			if (req.url === '/xled/v2/application/mode' && req.method === 'GET') return send(200, MODE_MOVIE)
 			if (req.url === '/xled/v2/application/mode' && req.method === 'POST') {
 				state.posts.push(JSON.parse(body))
+				return send(200, { result: { code: 1000 } })
+			}
+			if (req.url === '/xled/v2/led/color' && req.method === 'POST') {
+				state.colorPosts.push(JSON.parse(body))
 				return send(200, { result: { code: 1000 } })
 			}
 			return send(404, { result: { code: 2404 } })
@@ -310,6 +314,41 @@ test('REST client sends a colour inside color_config', async () => {
 	} finally {
 		server.close()
 	}
+})
+
+test('REST client updates a colour that is already showing with led/color', async () => {
+	const { server, state, host } = await fakeController()
+	try {
+		const client = new TwinklyRestClient(host, { timeoutMs: 2000 })
+		await client.updateColor({ red: 1, green: 2, blue: 3 })
+		assert.deepEqual(state.colorPosts, [{ red: 1, green: 2, blue: 3 }])
+		assert.deepEqual(state.posts, [])
+	} finally {
+		server.close()
+	}
+})
+
+test('REST controller uses the cheaper colour update only when the lights already show a solid colour', async () => {
+	const { ContentCache, RestController } = await import('../dist/controller.js')
+	const calls = []
+	const client = {
+		host: 'fake',
+		family: 'pro',
+		selectsByHandle: false,
+		setColor: async () => void calls.push('mode'),
+		updateColor: async () => void calls.push('update'),
+	}
+	const ctl = new RestController(
+		client,
+		new ContentCache(client),
+		() => {},
+		() => {},
+	)
+	const c = { red: 1, green: 2, blue: 3 }
+	await ctl.color({}, c)
+	await ctl.color({}, c, { alreadySolid: false })
+	await ctl.color({}, c, { alreadySolid: true })
+	assert.deepEqual(calls, ['mode', 'mode', 'update'])
 })
 
 test('REST controller shows a colour, and reports a failure instead of throwing', async () => {

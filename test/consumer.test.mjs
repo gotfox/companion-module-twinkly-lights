@@ -151,15 +151,32 @@ test('consumer client sends the consumer command sequence', async () => {
 	}
 })
 
-test('consumer lights refuse a solid colour instead of guessing at an untested call', async () => {
+test('consumer client sets a colour with led/color, then switches to colour mode', async () => {
 	const { server, state, host } = await fakeConsumer()
 	try {
 		const c = new TwinklyRestClient(host, { family: 'consumer', timeoutMs: 1000 })
-		await assert.rejects(c.setColor({ red: 1, green: 2, blue: 3 }), /only supported on Twinkly Pro/)
-		assert.deepEqual(state.posts, [])
+		await c.setColor({ red: 255, green: 0, blue: 10 })
+		await c.updateColor({ red: 0, green: 0, blue: 255 })
+		assert.deepEqual(state.posts, [
+			['led/color', { red: 255, green: 0, blue: 10 }],
+			['led/mode', { mode: 'color' }],
+			['led/color', { red: 0, green: 0, blue: 255 }],
+		])
 	} finally {
 		server.close()
 	}
+})
+
+test('a consumer light in colour mode reports its colour with a top-level status code', () => {
+	// Captured from Twinkly Squares on firmware 2.11.0
+	const body = {
+		mode: 'color',
+		detect_mode: 0,
+		shop_mode: 0,
+		color_config: { hue: 240, saturation: 254, value: 255, red: 1, green: 1, blue: 255 },
+		code: 1000,
+	}
+	assert.deepEqual(parseMode(body).color, { red: 1, green: 1, blue: 255 })
 })
 
 test('with a known family, detection only tries that API but still returns device info', async () => {

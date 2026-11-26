@@ -98,7 +98,8 @@ export async function setColor(
 	fadeSeconds: number,
 ): Promise<boolean> {
 	host.fader.cancel(COLOR_CHANNEL)
-	const send = async (c: RgbColor): Promise<boolean> => host.controller.color(target, c)
+	const send = async (c: RgbColor, alreadySolid: boolean): Promise<boolean> =>
+		host.controller.color(target, c, { alreadySolid })
 	const record = (): void => host.setState({ mode: 'color', color })
 
 	if (fadeSeconds > 0) {
@@ -106,18 +107,24 @@ export async function setColor(
 		if (from === null) {
 			warnInstant(host, 'the current colour')
 		} else {
+			// The first step sets the colour mode; the rest use the cheaper update, which keeps REST steps fast
+			let firstStep = true
 			const reached = await host.fader.run(
 				COLOR_CHANNEL,
 				toVector(from),
 				toVector(color),
 				timing(host, fadeSeconds),
-				async (v) => send(fromVector(v)),
+				async (v) => {
+					const alreadySolid = !firstStep
+					firstStep = false
+					return send(fromVector(v), alreadySolid)
+				},
 			)
 			if (reached) record()
 			return reached
 		}
 	}
-	const sent = await send(color)
+	const sent = await send(color, false)
 	if (sent) record()
 	return sent
 }

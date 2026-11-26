@@ -11,7 +11,6 @@ export type VariablesSchema = {
 	brightness_filter: string
 	color: string
 	target: string
-	discovered_devices: string
 	device_name: string
 	device_type: string
 }
@@ -27,7 +26,6 @@ export function UpdateVariableDefinitions(self: ModuleInstance): void {
 		brightness_filter: { name: 'Brightness filter (enabled / disabled)' },
 		color: { name: 'Solid colour as RRGGBB hex (empty unless in colour mode)' },
 		target: { name: 'Default OSC target (device ID or wildcard)' },
-		discovered_devices: { name: 'Devices found by the scan' },
 		device_name: { name: 'Device name, as set in the Twinkly app (needs a controller IP)' },
 		device_type: { name: 'Device type: Twinkly Pro or Twinkly, plus model code' },
 	})
