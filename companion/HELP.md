@@ -56,6 +56,7 @@ With OSC, every action can override the default target. With REST, commands alwa
 
 - **Lights off**, **Play effect**, **Start playlist**
 - **Set brightness** (absolute 0-100), **Adjust brightness** (relative -100..100), **Brightness filter on/off**
+- **Set colour**: show a solid colour (Twinkly Pro). Brightness and colour changes can be **faded**; see below.
 - **Send raw OSC** to `/v1/<device_id>/<path>`. This works in either mode.
 - **Scan network for controllers**: see below.
 
@@ -69,13 +70,24 @@ With OSC, every action can override the default target. With REST, commands alwa
 
 **Brightness over OSC** goes to `led/out/brightness`, as in Twinkly's "Third-party Controls" guide. Absolute and relative changes and the on/off filter were verified on PRO firmware 4.1.0.
 
+**Set colour** shows a solid colour, chosen with Companion's colour picker (or an expression). OSC sends `application/mode color R G B` (three integers, 0-255) and REST posts `application/mode` with the colour inside `color_config`. Both were verified on PRO firmware 4.1.0. Twinkly's guide lists a `color` mode but gives no arguments for it, so this form was found by testing; a bare `color` does nothing. Twinkly lights (not Pro) aren't supported yet, because their colour call hasn't been tested. With state reading on, the `mode` variable shows `color` and the `color` variable shows the colour as `RRGGBB`. The **Colour matches** feedback and the **Colours** presets use it.
+
+**Fades:** Set brightness, Adjust brightness and Set colour have a **Fade time** in seconds (0 is instant). The controller has no fade command, so Companion sends small steps: about 20 a second with OSC and 8 a second with REST. Verified on PRO firmware 4.1.0 with both trees of a group.
+
+- A fade needs a known starting point: the current brightness (state reading on, or a level you set earlier), or for colour, lights already showing a solid colour. If it isn't known, the change is sent instantly and the log says so.
+- With the brightness filter off, a fade starts from 100%.
+- **Adjust brightness** with a fade becomes a fade to the new absolute level.
+- A fade runs in the background, so the button's other actions don't wait for it. A new brightness or colour command cancels a running fade on that setting, as does the brightness filter action.
+- OSC fades look smoother than REST fades, because REST handles fewer requests a second.
+- A colour fade doesn't change brightness, and a brightness fade doesn't change colour.
+
 ### State: read back or assumed
 
 When the address is a controller IP and state reading is on, the module asks the controller every few seconds what it is doing. It reads the mode, the effect (including the one a playlist is currently on), the playlist and the brightness. Variables and feedbacks then match the real lights, including changes made in the app. For a group, use the master's IP, because other group members don't report the group's state.
 
 Without state reading, for example with a broadcast address, the module can only show what it **last sent**. OSC gets no replies. The `state_source` variable shows `controller` or `assumed`.
 
-Variables: `mode`, `effect` (handle), `effect_name`, `playlist_name`, `brightness`, `brightness_filter`, `state_source`, `target`, `discovered_devices`.
+Variables: `mode`, `effect` (handle), `effect_name`, `playlist_name`, `brightness`, `brightness_filter`, `color`, `state_source`, `target`, `discovered_devices`.
 
 ### Controller IPs and groups
 
@@ -98,6 +110,7 @@ The scan was verified on PRO controllers only. You don't need it to use the modu
 
 - The REST API is described in Twinkly's API reference (https://ledworks.atlassian.net/wiki/spaces/TWPUB/pages/1662222337/Twinkly+Runtime+API+Reference, for its cloud form) and in the community's xled-docs (https://xled-docs.readthedocs.io, for the local `/xled/` endpoints, which describe `/xled/v1/`). Twinkly Pro uses `/xled/v2/`, verified on TWPRO1500ETHP with firmware 4.1.0. A firmware update could change it; if REST stops working on Twinkly Pro, switch to OSC.
 - REST logs in to the controller the same way the Twinkly API does. In testing, the Twinkly Pro app kept working alongside it.
+- A Pro controller keeps **one REST login at a time**: when another client logs in, the first client's login stops working. The module logs in again when that happens, so two REST clients on one controller (a second Companion, a script) take turns rather than fail, but a fade may then get a late step. OSC has no login and isn't affected.
 - The integer after an OSC `playlist` command is the playlist index, with 0 as the first playlist (verified on PRO).
 - "Disable brightness filter" sends only `disabled`, as in Twinkly's guide. The controller keeps the stored level.
 - The OSC guide gives the effect handle range as both 0-15 and 0-n. Handles 16 and 17 worked on PRO, so it is 0-n.

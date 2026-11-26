@@ -1,3 +1,4 @@
+import { colorHex } from './color.js'
 import type ModuleInstance from './main.js'
 
 export type VariablesSchema = {
@@ -8,6 +9,7 @@ export type VariablesSchema = {
 	state_source: string
 	brightness: string
 	brightness_filter: string
+	color: string
 	target: string
 	discovered_devices: string
 	device_name: string
@@ -23,6 +25,7 @@ export function UpdateVariableDefinitions(self: ModuleInstance): void {
 		state_source: { name: 'Where state comes from: controller (read back) or assumed (last command sent)' },
 		brightness: { name: 'Brightness (%)' },
 		brightness_filter: { name: 'Brightness filter (enabled / disabled)' },
+		color: { name: 'Solid colour as RRGGBB hex (empty unless in colour mode)' },
 		target: { name: 'Default OSC target (device ID or wildcard)' },
 		discovered_devices: { name: 'Devices found by the scan' },
 		device_name: { name: 'Device name, as set in the Twinkly app (needs a controller IP)' },
@@ -46,6 +49,7 @@ export function UpdateVariableValues(self: ModuleInstance): void {
 		state_source: s.source,
 		brightness: s.brightness === null ? '' : String(s.brightness),
 		brightness_filter: s.brightnessFilter,
+		color: s.color === null ? '' : colorHex(s.color),
 		target: self.defaultDeviceId() ?? 'invalid',
 		device_name: self.device?.deviceName ?? '',
 		device_type: deviceTypeLabel(self.deviceFamily, self.device?.productCode ?? ''),

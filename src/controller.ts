@@ -1,3 +1,4 @@
+import { colorHex, type RgbColor } from './color.js'
 import { oscInt, oscString, type OscArg } from './osc.js'
 import type { BrightnessCommand, TwinklyRestClient } from './rest.js'
 import type { MovieInfo, PlaylistInfo } from './rest-parse.js'
@@ -14,6 +15,8 @@ export interface Controller {
 	movie(target: TargetOptions, effect: EffectSelector): Promise<boolean>
 	playlist(target: TargetOptions, index: number): Promise<boolean>
 	brightness(target: TargetOptions, command: BrightnessCommand): Promise<boolean>
+	/** Show a solid colour (Twinkly Pro) */
+	color(target: TargetOptions, color: RgbColor): Promise<boolean>
 	/** Consumer lights only */
 	builtinEffect(target: TargetOptions, index: number): Promise<boolean>
 }
@@ -53,6 +56,11 @@ export class OscController implements Controller {
 		return this.send(target, 'led/out/brightness', args)
 	}
 
+	async color(target: TargetOptions, c: RgbColor): Promise<boolean> {
+		// Verified on PRO firmware 4.1.0: three ints 0-255 in R, G, B order. A bare "color" is ignored.
+		return this.send(target, 'application/mode', [oscString('color'), oscInt(c.red), oscInt(c.green), oscInt(c.blue)])
+	}
+
 	async builtinEffect(): Promise<boolean> {
 		this.log(
 			'warn',
@@ -87,6 +95,9 @@ export class UnavailableController implements Controller {
 		return this.refuse()
 	}
 	async brightness(): Promise<boolean> {
+		return this.refuse()
+	}
+	async color(): Promise<boolean> {
 		return this.refuse()
 	}
 	async builtinEffect(): Promise<boolean> {
@@ -209,6 +220,10 @@ export class RestController implements Controller {
 		return this.run(`Brightness ${command.mode} ${command.type} ${command.value}`, async () =>
 			this.client.setBrightness(command),
 		)
+	}
+
+	async color(_target: TargetOptions, c: RgbColor): Promise<boolean> {
+		return this.run(`Colour ${colorHex(c)}`, async () => this.client.setColor(c))
 	}
 
 	async builtinEffect(_target: TargetOptions, index: number): Promise<boolean> {

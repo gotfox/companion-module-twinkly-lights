@@ -151,6 +151,17 @@ test('consumer client sends the consumer command sequence', async () => {
 	}
 })
 
+test('consumer lights refuse a solid colour instead of guessing at an untested call', async () => {
+	const { server, state, host } = await fakeConsumer()
+	try {
+		const c = new TwinklyRestClient(host, { family: 'consumer', timeoutMs: 1000 })
+		await assert.rejects(c.setColor({ red: 1, green: 2, blue: 3 }), /only supported on Twinkly Pro/)
+		assert.deepEqual(state.posts, [])
+	} finally {
+		server.close()
+	}
+})
+
 test('with a known family, detection only tries that API but still returns device info', async () => {
 	const { server, host } = await fakeConsumer()
 	try {

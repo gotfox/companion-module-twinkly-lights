@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import type { RgbColor } from './color.js'
 import {
 	checkResult,
 	parseBrightness,
@@ -174,6 +175,17 @@ export class TwinklyRestClient {
 
 	async setBrightness(command: BrightnessCommand): Promise<void> {
 		await this.post('led/out/brightness', command)
+	}
+
+	/** Show a solid colour. Verified on Pro; consumer lights use a different call that hasn't been tested. */
+	async setColor(color: RgbColor): Promise<void> {
+		if (this.family !== 'pro') {
+			throw new Error('solid colour is only supported on Twinkly Pro (consumer lights are untested)')
+		}
+		await this.post('application/mode', {
+			mode: 'color',
+			color_config: { red: color.red, green: color.green, blue: color.blue },
+		})
 	}
 
 	/** Request with a valid token, logging in again once if the controller rejects it. */

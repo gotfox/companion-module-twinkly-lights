@@ -9,6 +9,7 @@ import { UpdatePresets } from './presets.js'
 import { encodeOscMessage, type OscArg } from './osc.js'
 import { buildAddress, DEFAULT_OSC_PORT, deviceId, type TargetConfig } from './twinkly.js'
 import { initialState, type AssumedState } from './state.js'
+import { Fader } from './fade.js'
 import {
 	OscController,
 	RestController,
@@ -49,6 +50,8 @@ export { UpgradeScripts }
 export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	config!: ModuleConfig // Setup in init()
 	state: AssumedState = initialState()
+	/** Runs the brightness and colour fades (the controller has no fade command) */
+	readonly fader = new Fader()
 
 	private socket: dgram.Socket | undefined
 	private live: LiveConnection | null = null
@@ -124,6 +127,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	async destroy(): Promise<void> {
 		this.destroyed = true
+		this.fader.cancelAll()
 		clearTimeout(this.discoveryTimer)
 		this.generation++
 		clearTimeout(this.retryTimer)
@@ -341,7 +345,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	private refreshState(): void {
 		UpdateVariableValues(this)
-		this.checkFeedbacks('mode_is', 'effect_is', 'brightness_is', 'playlist_is')
+		this.checkFeedbacks('mode_is', 'effect_is', 'brightness_is', 'playlist_is', 'color_is')
 	}
 
 	private async openSocket(generation: number): Promise<void> {

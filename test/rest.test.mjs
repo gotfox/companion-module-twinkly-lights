@@ -267,9 +267,69 @@ test('polled state maps the effect UUID to a handle when known', async () => {
 		playlistUuid: 'cd7bb2fd-4fda-1fe3-b1a3-25f2febef01a',
 		brightness: 30,
 		brightnessFilter: 'enabled',
+		color: null,
 	})
 	const unknown = stateFromController({ ...parseMode(MODE_MOVIE), effectUuid: 'NEW-UUID' }, bright, movies)
 	assert.equal(unknown.effect, 'NEW-UUID')
+})
+
+test('parses the colour reported in colour mode, and ignores a missing or malformed one', () => {
+	const ok = { result: { code: 1000 } }
+	const body = { mode: 'color', color_config: { red: 255, green: 0, blue: 128, hue: 330 }, ...ok }
+	assert.deepEqual(parseMode(body).color, { red: 255, green: 0, blue: 128 })
+	assert.equal(parseMode({ mode: 'color', ...ok }).color, undefined)
+	assert.equal(parseMode({ mode: 'color', color_config: { red: 'x', green: 0, blue: 0 }, ...ok }).color, undefined)
+	assert.equal(parseMode({ mode: 'off', color_config: { red: 1, green: 2, blue: 3 }, ...ok }).color, undefined)
+	assert.deepEqual(parseMode({ mode: 'color', color_config: { red: 999, green: -4, blue: 1.6 }, ...ok }).color, {
+		red: 255,
+		green: 0,
+		blue: 2,
+	})
+})
+
+test('polled state carries the colour in colour mode and clears it otherwise', async () => {
+	const { stateFromController } = await import('../dist/state.js')
+	const bright = { filter: 'enabled', value: 100 }
+	const ok = { result: { code: 1000 } }
+	const solid = stateFromController(
+		parseMode({ mode: 'color', color_config: { red: 1, green: 2, blue: 3 }, ...ok }),
+		bright,
+		[],
+	)
+	assert.equal(solid.mode, 'color')
+	assert.deepEqual(solid.color, { red: 1, green: 2, blue: 3 })
+	assert.equal(stateFromController(parseMode({ mode: 'off', ...ok }), bright, []).color, null)
+})
+
+test('REST client sends a colour inside color_config', async () => {
+	const { server, state, host } = await fakeController()
+	try {
+		const client = new TwinklyRestClient(host, { timeoutMs: 2000 })
+		await client.setColor({ red: 255, green: 0, blue: 128 })
+		assert.deepEqual(state.posts, [{ mode: 'color', color_config: { red: 255, green: 0, blue: 128 } }])
+	} finally {
+		server.close()
+	}
+})
+
+test('REST controller shows a colour, and reports a failure instead of throwing', async () => {
+	const { ContentCache, RestController } = await import('../dist/controller.js')
+	const sent = []
+	const logs = []
+	const client = { host: 'fake', family: 'pro', selectsByHandle: false, setColor: async (c) => void sent.push(c) }
+	const ctl = new RestController(
+		client,
+		new ContentCache(client),
+		(level, msg) => logs.push([level, msg]),
+		() => {},
+	)
+	assert.equal(await ctl.color({}, { red: 1, green: 2, blue: 3 }), true)
+	assert.deepEqual(sent, [{ red: 1, green: 2, blue: 3 }])
+	client.setColor = async () => {
+		throw new Error('boom')
+	}
+	assert.equal(await ctl.color({}, { red: 1, green: 2, blue: 3 }), false)
+	assert.ok(logs.some(([level, msg]) => level === 'error' && msg.includes('boom')))
 })
 
 test('config helpers: unicast detection and defaults for old saved configs', async () => {
