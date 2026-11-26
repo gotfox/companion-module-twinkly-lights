@@ -2,7 +2,15 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Fader } from '../dist/fade.js'
 import { initialState } from '../dist/state.js'
-import { adjustBrightness, setBrightness, setColor, startBrightness } from '../dist/fade-actions.js'
+import {
+	adjustBrightness,
+	adjustFades,
+	brightnessFades,
+	colorFades,
+	setBrightness,
+	setColor,
+	startBrightness,
+} from '../dist/fade-actions.js'
 
 const fakeClock = () => {
 	let t = 0
@@ -175,6 +183,40 @@ test('a new brightness command cancels a fade that is still running', async () =
 	assert.equal(await slow, false)
 	assert.equal(host.sentBrightness.at(-1).value, 5)
 	assert.equal(host.state.brightness, 5)
+})
+
+test('a change is only reported as a fade when steps will actually be sent', () => {
+	const bright = { ...initialState(), brightness: 100, brightnessFilter: 'enabled' }
+	assert.equal(brightnessFades(bright, 2, 50), true)
+	assert.equal(brightnessFades(bright, 0, 50), false, 'no fade time')
+	assert.equal(brightnessFades(bright, 2, 100), false, 'already at that level')
+	assert.equal(brightnessFades(initialState(), 2, 50), false, 'unknown starting level')
+	assert.equal(adjustFades(bright, 2, -20), true)
+	assert.equal(adjustFades(bright, 2, 20), false, 'clamped to where it already is')
+	assert.equal(adjustFades(initialState(), 2, -20), false)
+
+	const red = { red: 255, green: 0, blue: 0 }
+	const blue = { red: 0, green: 0, blue: 255 }
+	const inColour = { ...initialState(), mode: 'color', color: red }
+	assert.equal(colorFades(inColour, 2, blue), true)
+	assert.equal(colorFades(inColour, 0, blue), false, 'no fade time')
+	assert.equal(colorFades(inColour, 2, red), false, 'already that colour')
+	assert.equal(colorFades({ ...initialState(), mode: 'movie' }, 2, red), false, 'not in colour mode')
+	assert.equal(colorFades({ ...initialState(), mode: 'color' }, 2, red), false, 'colour not known')
+})
+
+test('setting 100% when the filter is off and the level is already 100% still sends the enabling command', async () => {
+	const host = fakeHost({ brightness: 100, brightnessFilter: 'disabled' })
+	assert.equal(await setBrightness(host, TARGET, 100, 3), true)
+	assert.deepEqual(host.sentBrightness, [{ mode: 'enabled', type: 'A', value: 100 }])
+	assert.equal(host.state.brightnessFilter, 'enabled')
+})
+
+test('fading to the colour already showing sends it once instead of doing nothing', async () => {
+	const red = { red: 255, green: 0, blue: 0 }
+	const host = fakeHost({ mode: 'color', color: red })
+	assert.equal(await setColor(host, TARGET, red, 3), true)
+	assert.deepEqual(host.sentColor, [red])
 })
 
 test('a failed send during a fade reports false', async () => {

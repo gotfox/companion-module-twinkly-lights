@@ -1,6 +1,15 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { COLOR_PRESETS, clampByte, colorHex, colorToNumber, contrastText, rgbFromNumber, sameColor } from '../dist/color.js'
+import { colorVariable } from '../dist/state.js'
+
+test('the colour variable is empty unless the lights are in colour mode', () => {
+	const red = { red: 255, green: 0, blue: 0 }
+	assert.equal(colorVariable({ mode: 'color', color: red }), 'ff0000')
+	assert.equal(colorVariable({ mode: 'off', color: red }), '', 'a stale colour after another mode was chosen')
+	assert.equal(colorVariable({ mode: 'movie', color: red }), '')
+	assert.equal(colorVariable({ mode: 'color', color: null }), '')
+})
 
 test('rgbFromNumber splits a Companion colour (0xRRGGBB)', () => {
 	assert.deepEqual(rgbFromNumber(0xff8000), { red: 255, green: 128, blue: 0 })

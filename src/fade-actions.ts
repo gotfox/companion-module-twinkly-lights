@@ -1,5 +1,5 @@
 import type { TargetOptions } from './controller.js'
-import type { RgbColor } from './color.js'
+import { sameColor, type RgbColor } from './color.js'
 import { FADE_STEP_MS } from './fade.js'
 import type ModuleInstance from './main.js'
 import type { AssumedState } from './state.js'
@@ -30,6 +30,34 @@ export function startBrightness(state: Pick<AssumedState, 'brightness' | 'bright
 	return state.brightnessFilter === 'disabled' ? FULL_BRIGHTNESS : state.brightness
 }
 
+/**
+ * Will this brightness change run as a fade? False with no fade time, an unknown starting level, or
+ * nothing to fade (already at the target), in which case one command is sent at once instead.
+ */
+export function brightnessFades(
+	state: Pick<AssumedState, 'brightness' | 'brightnessFilter'>,
+	fadeSeconds: number,
+	target: number,
+): boolean {
+	const from = startBrightness(state)
+	return fadeSeconds > 0 && from !== null && from !== target
+}
+
+/** Will a relative brightness change by `delta` run as a fade? */
+export function adjustFades(
+	state: Pick<AssumedState, 'brightness' | 'brightnessFilter'>,
+	fadeSeconds: number,
+	delta: number,
+): boolean {
+	const from = startBrightness(state)
+	return from !== null && brightnessFades(state, fadeSeconds, clampPercent(from + delta))
+}
+
+/** Will this colour change run as a fade? Only from a known solid colour, and only to a different one. */
+export function colorFades(state: Pick<AssumedState, 'mode' | 'color'>, fadeSeconds: number, color: RgbColor): boolean {
+	return fadeSeconds > 0 && state.mode === 'color' && state.color !== null && !sameColor(state.color, color)
+}
+
 const warnInstant = (host: FadeHost, what: string): void =>
 	host.log('warn', `Fade skipped: ${what} is not known yet, so the change was sent instantly.`)
 
@@ -45,22 +73,20 @@ export async function setBrightness(
 		host.controller.brightness(target, { mode: 'enabled', type: 'A', value: level })
 	const record = (): void => host.setState({ brightness: value, brightnessFilter: 'enabled' })
 
-	if (fadeSeconds > 0) {
-		const from = startBrightness(host.state)
-		if (from === null) {
-			warnInstant(host, 'the current brightness')
-		} else {
-			const reached = await host.fader.run(
-				BRIGHTNESS_CHANNEL,
-				[from],
-				[value],
-				timing(host, fadeSeconds),
-				async (level) => send(level[0] ?? value),
-			)
-			if (reached) record()
-			return reached
-		}
+	const from = startBrightness(host.state)
+	if (from !== null && brightnessFades(host.state, fadeSeconds, value)) {
+		const reached = await host.fader.run(
+			BRIGHTNESS_CHANNEL,
+			[from],
+			[value],
+			timing(host, fadeSeconds),
+			async (level) => send(level[0] ?? value),
+		)
+		if (reached) record()
+		return reached
 	}
+	if (fadeSeconds > 0 && from === null) warnInstant(host, 'the current brightness')
+	// Also when there is nothing to fade: one command still switches the brightness filter on
 	const sent = await send(value)
 	if (sent) record()
 	return sent
@@ -102,28 +128,25 @@ export async function setColor(
 		host.controller.color(target, c, { alreadySolid })
 	const record = (): void => host.setState({ mode: 'color', color })
 
-	if (fadeSeconds > 0) {
-		const from = host.state.mode === 'color' ? host.state.color : null
-		if (from === null) {
-			warnInstant(host, 'the current colour')
-		} else {
-			// The first step sets the colour mode; the rest use the cheaper update, which keeps REST steps fast
-			let firstStep = true
-			const reached = await host.fader.run(
-				COLOR_CHANNEL,
-				toVector(from),
-				toVector(color),
-				timing(host, fadeSeconds),
-				async (v) => {
-					const alreadySolid = !firstStep
-					firstStep = false
-					return send(fromVector(v), alreadySolid)
-				},
-			)
-			if (reached) record()
-			return reached
-		}
+	const from = host.state.mode === 'color' ? host.state.color : null
+	if (from !== null && colorFades(host.state, fadeSeconds, color)) {
+		// The first step sets the colour mode; the rest use the cheaper update, which keeps REST steps fast
+		let firstStep = true
+		const reached = await host.fader.run(
+			COLOR_CHANNEL,
+			toVector(from),
+			toVector(color),
+			timing(host, fadeSeconds),
+			async (v) => {
+				const alreadySolid = !firstStep
+				firstStep = false
+				return send(fromVector(v), alreadySolid)
+			},
+		)
+		if (reached) record()
+		return reached
 	}
+	if (fadeSeconds > 0 && from === null) warnInstant(host, 'the current colour')
 	const sent = await send(color, false)
 	if (sent) record()
 	return sent

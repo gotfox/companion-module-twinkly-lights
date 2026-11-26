@@ -5,7 +5,15 @@ import { PRODUCT_CHOICES, TARGET_MODE_CHOICES } from './twinkly.js'
 import { runScan } from './scan.js'
 import { rgbFromNumber } from './color.js'
 import { MAX_FADE_SECONDS } from './fade.js'
-import { adjustBrightness, BRIGHTNESS_CHANNEL, setBrightness, setColor } from './fade-actions.js'
+import {
+	adjustBrightness,
+	adjustFades,
+	BRIGHTNESS_CHANNEL,
+	brightnessFades,
+	colorFades,
+	setBrightness,
+	setColor,
+} from './fade-actions.js'
 
 type TargetOptions = { target: string; productType: string; mac: string }
 
@@ -66,9 +74,12 @@ const fadeField: SomeCompanionActionInputField<'fade'> = {
 	clampValues: true,
 }
 
-/** A fade carries on in the background so the button's other actions aren't held up; an instant change is awaited. */
-async function settle(self: ModuleInstance, fadeSeconds: number, change: Promise<boolean>): Promise<void> {
-	if (fadeSeconds > 0) {
+/**
+ * A fade carries on in the background so the button's other actions aren't held up. Anything sent at
+ * once, including a change that fell back to instant, is awaited so later actions can't overtake it.
+ */
+async function settle(self: ModuleInstance, fades: boolean, change: Promise<boolean>): Promise<void> {
+	if (fades) {
 		change.catch((e: unknown) => self.log('error', `Fade failed: ${e instanceof Error ? e.message : String(e)}`))
 		return
 	}
@@ -229,7 +240,8 @@ export function UpdateActions(self: ModuleInstance): void {
 			],
 			callback: async ({ options }) => {
 				const value = clamp(options.value, 0, 100)
-				await settle(self, options.fade, setBrightness(self, options, value, options.fade))
+				const fades = brightnessFades(self.state, options.fade, value)
+				await settle(self, fades, setBrightness(self, options, value, options.fade))
 			},
 		},
 
@@ -244,7 +256,8 @@ export function UpdateActions(self: ModuleInstance): void {
 			],
 			callback: async ({ options }) => {
 				const delta = clamp(options.delta, -100, 100)
-				await settle(self, options.fade, adjustBrightness(self, options, delta, options.fade))
+				const fades = adjustFades(self.state, options.fade, delta)
+				await settle(self, fades, adjustBrightness(self, options, delta, options.fade))
 			},
 		},
 
@@ -274,7 +287,8 @@ export function UpdateActions(self: ModuleInstance): void {
 			],
 			callback: async ({ options }) => {
 				const color = rgbFromNumber(Number(options.color))
-				await settle(self, options.fade, setColor(self, options, color, options.fade))
+				const fades = colorFades(self.state, options.fade, color)
+				await settle(self, fades, setColor(self, options, color, options.fade))
 			},
 		},
 

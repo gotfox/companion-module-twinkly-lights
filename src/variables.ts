@@ -1,5 +1,5 @@
-import { colorHex } from './color.js'
 import type ModuleInstance from './main.js'
+import { colorVariable } from './state.js'
 
 export type VariablesSchema = {
 	mode: string
@@ -47,7 +47,7 @@ export function UpdateVariableValues(self: ModuleInstance): void {
 		state_source: s.source,
 		brightness: s.brightness === null ? '' : String(s.brightness),
 		brightness_filter: s.brightnessFilter,
-		color: s.color === null ? '' : colorHex(s.color),
+		color: colorVariable(s),
 		target: self.defaultDeviceId() ?? 'invalid',
 		device_name: self.device?.deviceName ?? '',
 		device_type: deviceTypeLabel(self.deviceFamily, self.device?.productCode ?? ''),
