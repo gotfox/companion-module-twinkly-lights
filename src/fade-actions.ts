@@ -25,10 +25,10 @@ const channelFor = (prefix: string, host: FadeHost, target: TargetOptions): stri
 
 /**
  * Does the module-wide state describe the controller this action is aimed at? It describes the
- * connection's own controller, so an OSC action that overrides the target can't start a fade from it.
- * REST always talks to the connection's controller.
+ * connection's own controller, so an OSC action that overrides the target can't start a fade from it,
+ * and its result must not be recorded into it. REST always talks to the connection's controller.
  */
-const stateApplies = (host: FadeHost, target: TargetOptions): boolean =>
+export const stateApplies = (host: Pick<FadeHost, 'controller'>, target: TargetOptions): boolean =>
 	host.controller.kind !== 'osc' || target.target === undefined || target.target === 'default'
 
 /** Stop running brightness fades on every controller (for example when the filter is toggled). */
@@ -104,7 +104,9 @@ export async function setBrightness(
 	const interrupted = host.fader.cancel(channel)
 	const send = async (level: number): Promise<boolean> =>
 		host.controller.brightness(target, { mode: 'enabled', type: 'A', value: level })
-	const record = (): void => host.setState({ brightness: value, brightnessFilter: 'enabled' })
+	const record = (): void => {
+		if (stateApplies(host, target)) host.setState({ brightness: value, brightnessFilter: 'enabled' })
+	}
 
 	const from = interrupted?.[0] ?? (stateApplies(host, target) ? startBrightness(host.state) : null)
 	if (from !== null && fadeSeconds > 0 && from !== value) {
@@ -136,7 +138,7 @@ export async function adjustBrightness(
 	const interrupted = host.fader.cancel(channel)
 	if (fadeSeconds > 0) warnInstant(host, 'the current brightness')
 	const sent = await host.controller.brightness(target, { mode: 'enabled', type: 'R', value: delta })
-	if (sent) {
+	if (sent && stateApplies(host, target)) {
 		const base = interrupted?.[0] ?? host.state.brightness
 		host.setState({ brightness: base === null ? null : clampPercent(base + delta), brightnessFilter: 'enabled' })
 	}
@@ -158,7 +160,9 @@ export async function setColor(
 	const interrupted = host.fader.cancel(channel)
 	const send = async (c: RgbColor, alreadySolid: boolean): Promise<boolean> =>
 		host.controller.color(target, c, { alreadySolid })
-	const record = (): void => host.setState({ mode: 'color', color })
+	const record = (): void => {
+		if (stateApplies(host, target)) host.setState({ mode: 'color', color })
+	}
 
 	const from = interrupted ? fromVector(interrupted) : colorNow(host, target)
 	if (from !== null && fadeSeconds > 0 && !sameColor(from, color)) {

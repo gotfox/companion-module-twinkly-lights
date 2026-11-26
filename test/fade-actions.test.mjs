@@ -12,6 +12,7 @@ import {
 	setBrightness,
 	setColor,
 	startBrightness,
+	stateApplies,
 } from '../dist/fade-actions.js'
 
 const fakeClock = () => {
@@ -255,6 +256,32 @@ test('a fade aimed at another OSC controller does not start from the connection 
 	assert.equal(await setBrightness(host, other, 100, 2), true)
 	assert.deepEqual(host.sentBrightness, [{ mode: 'enabled', type: 'A', value: 100 }])
 	assert.ok(host.logs.some(([level]) => level === 'warn'))
+})
+
+test('the state belongs to the connection controller: only default targets (and REST) record into it', () => {
+	const osc = fakeHost({}, 'osc')
+	assert.equal(stateApplies(osc, {}), true)
+	assert.equal(stateApplies(osc, { target: 'default' }), true)
+	assert.equal(stateApplies(osc, { target: 'device', id: 'B' }), false)
+	assert.equal(stateApplies(osc, { target: 'pro' }), false)
+	assert.equal(stateApplies(fakeHost({}, 'rest'), { target: 'device', id: 'B' }), true)
+})
+
+test('a change aimed at another OSC controller is sent but leaves the connection state alone', async () => {
+	const other = { target: 'device', id: 'B' }
+	const red = { red: 255, green: 0, blue: 0 }
+	const host = fakeHost({ brightness: 20, brightnessFilter: 'enabled', mode: 'movie' }, 'osc')
+	await setBrightness(host, other, 100, 0)
+	await adjustBrightness(host, other, -10, 0)
+	await setColor(host, other, red, 0)
+	assert.equal(host.sentBrightness.length, 2)
+	assert.equal(host.sentColor.length, 1)
+	assert.equal(host.state.brightness, 20)
+	assert.equal(host.state.mode, 'movie')
+	assert.equal(host.state.color, null)
+	// The connection's own controller still records
+	await setBrightness(host, TARGET, 50, 0)
+	assert.equal(host.state.brightness, 50)
 })
 
 test('with REST a target override is ignored, so fades still start from the connection state', () => {

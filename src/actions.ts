@@ -14,6 +14,7 @@ import {
 	colorFades,
 	setBrightness,
 	setColor,
+	stateApplies,
 } from './fade-actions.js'
 
 type TargetOptions = { target: string; productType: string; mac: string }
@@ -99,7 +100,7 @@ export function UpdateActions(self: ModuleInstance): void {
 			options: [...targetFields],
 			callback: async ({ options }) => {
 				cancelColorFades(self) // a running color fade would switch the lights back on at its next step
-				if (await self.controller.off(options))
+				if ((await self.controller.off(options)) && stateApplies(self, options))
 					self.setState({ mode: 'off', effect: '', effectName: '', playlistName: '', playlistUuid: '' })
 			},
 		},
@@ -166,7 +167,7 @@ export function UpdateActions(self: ModuleInstance): void {
 				}
 				const handle = clamp(Number(options.handle) || 0, 0, 255)
 				const effect = by === 'handle' ? { handle } : { uuid }
-				if (!(await self.controller.movie(options, effect))) return
+				if (!(await self.controller.movie(options, effect)) || !stateApplies(self, options)) return
 				const current = self.content?.movies ?? []
 				const known = current.find((m) =>
 					by === 'handle' ? m.handle === handle : m.uuid.toLowerCase() === uuid.toLowerCase(),
@@ -192,7 +193,7 @@ export function UpdateActions(self: ModuleInstance): void {
 			callback: async ({ options }) => {
 				cancelColorFades(self)
 				const index = clamp(options.index, 0, 255)
-				if (await self.controller.playlist(options, index)) {
+				if ((await self.controller.playlist(options, index)) && stateApplies(self, options)) {
 					const known = self.content?.playlists.find((p) => p.index === index)
 					self.setState({
 						mode: 'playlist',
@@ -275,7 +276,7 @@ export function UpdateActions(self: ModuleInstance): void {
 				cancelBrightnessFades(self)
 				const mode = options.enabled ? 'enabled' : 'disabled'
 				const value = options.enabled ? (self.state.brightness ?? 100) : 100
-				if (await self.controller.brightness(options, { mode, type: 'A', value })) {
+				if ((await self.controller.brightness(options, { mode, type: 'A', value })) && stateApplies(self, options)) {
 					self.setState({ brightnessFilter: mode })
 				}
 			},
