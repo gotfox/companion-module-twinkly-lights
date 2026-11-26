@@ -68,6 +68,18 @@ function cancelFades(
 	host.fader.cancelWhere((channel) => channel.startsWith(prefix) && targetsOverlap(channel.slice(prefix.length), id))
 }
 
+/**
+ * May the module-wide state start a fade for this target? It describes one controller, so not for an OSC
+ * wildcard (`*`, `TwPRO*`): the controllers it reaches can be at different levels or colors, and any that
+ * differ would jump at the first step. REST always talks to the connection's single controller.
+ */
+const stateStartsFade = (host: FadeHost, target: TargetOptions): boolean => {
+	if (!stateApplies(host, target)) return false
+	if (host.controller.kind !== 'osc') return true
+	const id = host.resolveDeviceId(target)
+	return id !== null && wildcardPrefix(id) === null
+}
+
 /** Stop running brightness fades on the controllers this command reaches (for example the filter toggle). */
 export const cancelBrightnessFades = (
 	host: Pick<FadeHost, 'fader' | 'controller' | 'resolveDeviceId'>,
@@ -99,13 +111,13 @@ export function startBrightness(state: Pick<AssumedState, 'brightness' | 'bright
 /** Where the brightness is now: the last step of a running fade, otherwise the stored level. */
 const brightnessNow = (host: FadeHost, target: TargetOptions): number | null =>
 	host.fader.current(channelFor(BRIGHTNESS_PREFIX, host, target))?.[0] ??
-	(stateApplies(host, target) ? startBrightness(host.state) : null)
+	(stateStartsFade(host, target) ? startBrightness(host.state) : null)
 
 /** The color showing now: the last step of a running fade, otherwise the known solid color. */
 const colorNow = (host: FadeHost, target: TargetOptions): RgbColor | null => {
 	const running = host.fader.current(channelFor(COLOR_PREFIX, host, target))
 	if (running) return fromVector(running)
-	return stateApplies(host, target) && host.state.mode === 'color' ? host.state.color : null
+	return stateStartsFade(host, target) && host.state.mode === 'color' ? host.state.color : null
 }
 
 /**
@@ -144,13 +156,14 @@ export async function setBrightness(
 ): Promise<boolean> {
 	const channel = channelFor(BRIGHTNESS_PREFIX, host, target)
 	const interrupted = host.fader.cancel(channel)
+	cancelFades(host, BRIGHTNESS_PREFIX, target) // fades on overlapping targets would compete with this command
 	const send = async (level: number): Promise<boolean> =>
 		host.controller.brightness(target, { mode: 'enabled', type: 'A', value: level })
 	const record = (): void => {
 		if (stateApplies(host, target)) host.setState({ brightness: value, brightnessFilter: 'enabled' })
 	}
 
-	const from = interrupted?.[0] ?? (stateApplies(host, target) ? startBrightness(host.state) : null)
+	const from = interrupted?.[0] ?? (stateStartsFade(host, target) ? startBrightness(host.state) : null)
 	if (from !== null && fadeSeconds > 0 && from !== value) {
 		const reached = await host.fader.run(channel, [from], [value], timing(host, fadeSeconds), async (level) =>
 			send(level[0] ?? value),
@@ -178,6 +191,7 @@ export async function adjustBrightness(
 		return setBrightness(host, target, clampPercent(from + delta), fadeSeconds)
 	}
 	const interrupted = host.fader.cancel(channel)
+	cancelFades(host, BRIGHTNESS_PREFIX, target)
 	if (fadeSeconds > 0) warnInstant(host, 'the current brightness')
 	const sent = await host.controller.brightness(target, { mode: 'enabled', type: 'R', value: delta })
 	if (sent && stateApplies(host, target)) {
@@ -200,6 +214,7 @@ export async function setColor(
 ): Promise<boolean> {
 	const channel = channelFor(COLOR_PREFIX, host, target)
 	const interrupted = host.fader.cancel(channel)
+	cancelFades(host, COLOR_PREFIX, target)
 	const send = async (c: RgbColor, alreadySolid: boolean): Promise<boolean> =>
 		host.controller.color(target, c, { alreadySolid })
 	const record = (): void => {

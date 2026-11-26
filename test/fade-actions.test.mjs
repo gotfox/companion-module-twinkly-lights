@@ -52,7 +52,7 @@ function fakeHost(state = {}, kind = 'osc') {
 				return true
 			},
 		},
-		resolveDeviceId: (target) => target?.id ?? 'TwPRO*',
+		resolveDeviceId: (target) => target?.id ?? 'TwPRO1',
 		setState: (patch) => {
 			host.state = { ...host.state, ...patch }
 		},
@@ -374,6 +374,41 @@ test('a command aimed at one controller leaves fades on unrelated controllers ru
 	cancelColorFades(host, { id: 'TwPROa' })
 	assert.equal(await a, false)
 	assert.equal(await b, true, 'the other controller carried on to its target')
+})
+
+test('a command to a wildcard replaces fades on the controllers it covers, and the reverse', async () => {
+	const host = fakeHost({ brightness: 0, brightnessFilter: 'enabled' })
+	const a = setBrightness(host, { id: 'TwPROa' }, 100, 30)
+	await ticks()
+	assert.equal(await setBrightness(host, { id: 'TwPRO*' }, 50, 0), true)
+	assert.equal(await a, false, 'the fade on the covered controller stopped')
+	const sent = host.sentBrightness.length
+	await ticks()
+	assert.equal(host.sentBrightness.length, sent, 'nothing more was sent by the replaced fade')
+	assert.equal(host.sentBrightness.at(-1).value, 50)
+
+	// And a colour change to one controller replaces a running fade on a wildcard it falls inside
+	const red = { red: 255, green: 0, blue: 0 }
+	const colourHost = fakeHost({ mode: 'color', color: red })
+	const wide = setColor(colourHost, { id: 'TwPROa' }, { red: 0, green: 0, blue: 255 }, 30)
+	await ticks()
+	assert.equal(await setColor(colourHost, { id: 'TwPRO*' }, { red: 0, green: 255, blue: 0 }, 0), true)
+	assert.equal(await wide, false)
+})
+
+test('a wildcard target has no single starting level, so it is sent instantly', async () => {
+	const host = fakeHost({ brightness: 20, brightnessFilter: 'enabled', mode: 'color', color: { red: 0, green: 0, blue: 0 } })
+	for (const id of ['*', 'TwPRO*']) {
+		assert.equal(brightnessFades(host, { id }, 2, 100), false, `${id}: brightness`)
+		assert.equal(adjustFades(host, { id }, 2, 20), false, `${id}: adjust`)
+		assert.equal(colorFades(host, { id }, 2, { red: 255, green: 0, blue: 0 }), false, `${id}: colour`)
+	}
+	assert.equal(await setBrightness(host, { id: '*' }, 100, 2), true)
+	assert.deepEqual(host.sentBrightness, [{ mode: 'enabled', type: 'A', value: 100 }])
+	assert.ok(host.logs.some(([level]) => level === 'warn'))
+	// A single controller still fades from the state, and REST is not affected by the target
+	assert.equal(brightnessFades(fakeHost({ brightness: 20, brightnessFilter: 'enabled' }), { id: 'TwPROa' }, 2, 100), true)
+	assert.equal(brightnessFades(fakeHost({ brightness: 20, brightnessFilter: 'enabled' }, 'rest'), { id: '*' }, 2, 100), true)
 })
 
 test('a command that cannot be addressed cancels nothing', async () => {
