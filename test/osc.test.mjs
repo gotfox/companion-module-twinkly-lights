@@ -32,6 +32,22 @@ test('OSC brightness goes to led/out/brightness, and disabling sends only the mo
 	assert.deepEqual(sent[1].args, [oscString('disabled')])
 })
 
+test('OSC color sends application/mode with three ints in R, G, B order', async () => {
+	const { OscController } = await import('../dist/controller.js')
+	const sent = []
+	const host = {
+		resolveDeviceId: () => 'TwPRO*',
+		sendCommand: (id, path, args) => {
+			sent.push({ id, path, args })
+			return true
+		},
+	}
+	const controller = new OscController(host, () => {})
+	assert.equal(await controller.color({}, { red: 255, green: 10, blue: 0 }), true)
+	assert.equal(sent[0].path, 'application/mode')
+	assert.deepEqual(sent[0].args, [oscString('color'), oscInt(255), oscInt(10), oscInt(0)])
+})
+
 test('encodes a message with no arguments and pads strings', () => {
 	const buf = encodeOscMessage('/a', [])
 	assert.deepEqual([...buf], [0x2f, 0x61, 0, 0, 0x2c, 0, 0, 0])

@@ -3,6 +3,20 @@ import type ModuleInstance from './main.js'
 import { oscInt, oscString } from './osc.js'
 import { PRODUCT_CHOICES, TARGET_MODE_CHOICES } from './twinkly.js'
 import { runScan } from './scan.js'
+import { rgbFromNumber } from './color.js'
+import { MAX_FADE_SECONDS } from './fade.js'
+import {
+	adjustBrightness,
+	adjustFades,
+	brightnessFades,
+	cancelBrightnessFades,
+	cancelColorFades,
+	colorFades,
+	isModePath,
+	setBrightness,
+	setColor,
+	stateApplies,
+} from './fade-actions.js'
 
 type TargetOptions = { target: string; productType: string; mac: string }
 
@@ -11,9 +25,10 @@ export type ActionsSchema = {
 	movie: { options: TargetOptions & { by: string; handle: number; uuid: string; listUuid: string } }
 	playlist: { options: TargetOptions & { index: number } }
 	builtin_effect: { options: { index: number } }
-	brightness_set: { options: TargetOptions & { value: number } }
-	brightness_adjust: { options: TargetOptions & { delta: number } }
+	brightness_set: { options: TargetOptions & { value: number; fade: number } }
+	brightness_adjust: { options: TargetOptions & { delta: number; fade: number } }
 	brightness_filter: { options: TargetOptions & { enabled: boolean } }
+	color_set: { options: TargetOptions & { color: number; fade: number } }
 	raw_osc: { options: TargetOptions & { path: string; types: string; values: string } }
 	scan: { options: Record<string, never> }
 }
@@ -49,6 +64,31 @@ const clamp = (n: number, lo: number, hi: number): number => Math.min(hi, Math.m
 
 const NO_LIST_CHOICE = { id: '', label: '(set a controller IP to load the effect list)' }
 
+const fadeField: SomeCompanionActionInputField<'fade'> = {
+	id: 'fade',
+	type: 'number',
+	label: 'Fade time (seconds, 0 = instant)',
+	tooltip:
+		'Companion fades by sending small steps; the controller has no fade command. Needs a known starting level (state reading, or a level set earlier). Another command on the same setting cancels a running fade.',
+	default: 0,
+	min: 0,
+	max: MAX_FADE_SECONDS,
+	step: 0.5,
+	clampValues: true,
+}
+
+/**
+ * A fade carries on in the background so the button's other actions aren't held up. Anything sent at
+ * once, including a change that fell back to instant, is awaited so later actions can't overtake it.
+ */
+async function settle(self: ModuleInstance, fades: boolean, change: Promise<boolean>): Promise<void> {
+	if (fades) {
+		change.catch((e: unknown) => self.log('error', `Fade failed: ${e instanceof Error ? e.message : String(e)}`))
+		return
+	}
+	await change
+}
+
 export function UpdateActions(self: ModuleInstance): void {
 	const movies = self.content?.movies ?? []
 	const movieChoices =
@@ -60,7 +100,8 @@ export function UpdateActions(self: ModuleInstance): void {
 			description: 'Set application mode to off.',
 			options: [...targetFields],
 			callback: async ({ options }) => {
-				if (await self.controller.off(options))
+				cancelColorFades(self, options) // a running color fade would switch the lights back on at its next step
+				if ((await self.controller.off(options)) && stateApplies(self, options))
 					self.setState({ mode: 'off', effect: '', effectName: '', playlistName: '', playlistUuid: '' })
 			},
 		},
@@ -116,6 +157,7 @@ export function UpdateActions(self: ModuleInstance): void {
 				},
 			],
 			callback: async ({ options }) => {
+				cancelColorFades(self, options)
 				// Actions saved before "by" existed, or with an unexpected value, play by handle
 				const by = options.by === 'list' || options.by === 'uuid' ? options.by : 'handle'
 				const raw = by === 'list' ? options.listUuid : options.uuid
@@ -126,7 +168,7 @@ export function UpdateActions(self: ModuleInstance): void {
 				}
 				const handle = clamp(Number(options.handle) || 0, 0, 255)
 				const effect = by === 'handle' ? { handle } : { uuid }
-				if (!(await self.controller.movie(options, effect))) return
+				if (!(await self.controller.movie(options, effect)) || !stateApplies(self, options)) return
 				const current = self.content?.movies ?? []
 				const known = current.find((m) =>
 					by === 'handle' ? m.handle === handle : m.uuid.toLowerCase() === uuid.toLowerCase(),
@@ -150,8 +192,9 @@ export function UpdateActions(self: ModuleInstance): void {
 				{ id: 'index', type: 'number', label: 'Playlist index (0 = first)', default: 0, min: 0, max: 255 },
 			],
 			callback: async ({ options }) => {
+				cancelColorFades(self, options)
 				const index = clamp(options.index, 0, 255)
-				if (await self.controller.playlist(options, index)) {
+				if ((await self.controller.playlist(options, index)) && stateApplies(self, options)) {
 					const known = self.content?.playlists.find((p) => p.index === index)
 					self.setState({
 						mode: 'playlist',
@@ -180,6 +223,7 @@ export function UpdateActions(self: ModuleInstance): void {
 				},
 			],
 			callback: async ({ options }) => {
+				cancelColorFades(self, {}) // the built-in effect action always uses the default target
 				const index = clamp(Number(options.index) || 0, 0, 255)
 				if (await self.controller.builtinEffect({}, index)) {
 					self.setState({
@@ -195,36 +239,32 @@ export function UpdateActions(self: ModuleInstance): void {
 
 		brightness_set: {
 			name: 'Set brightness',
-			description: 'Absolute brightness 0-100 % (also enables the brightness filter).',
+			description: 'Absolute brightness 0-100 % (also enables the brightness filter), optionally faded.',
 			options: [
 				...targetFields,
 				{ id: 'value', type: 'number', label: 'Brightness (%)', default: 100, min: 0, max: 100, clampValues: true },
+				fadeField,
 			],
 			callback: async ({ options }) => {
 				const value = clamp(options.value, 0, 100)
-				if (await self.controller.brightness(options, { mode: 'enabled', type: 'A', value })) {
-					self.setState({ brightness: value, brightnessFilter: 'enabled' })
-				}
+				const fades = brightnessFades(self, options, options.fade, value)
+				await settle(self, fades, setBrightness(self, options, value, options.fade))
 			},
 		},
 
 		brightness_adjust: {
 			name: 'Adjust brightness (relative)',
 			description:
-				'Relative brightness change, -100 to 100. Without state reading, Companion tracks the result locally as an estimate.',
+				'Relative brightness change, -100 to 100. Without state reading, Companion tracks the result locally as an estimate. With a fade it fades to the new level, which needs a known starting level.',
 			options: [
 				...targetFields,
 				{ id: 'delta', type: 'number', label: 'Change (%)', default: 10, min: -100, max: 100, clampValues: true },
+				fadeField,
 			],
 			callback: async ({ options }) => {
 				const delta = clamp(options.delta, -100, 100)
-				if (await self.controller.brightness(options, { mode: 'enabled', type: 'R', value: delta })) {
-					const base = self.state.brightness
-					self.setState({
-						brightness: base === null ? null : clamp(base + delta, 0, 100),
-						brightnessFilter: 'enabled',
-					})
-				}
+				const fades = adjustFades(self, options, options.fade, delta)
+				await settle(self, fades, adjustBrightness(self, options, delta, options.fade))
 			},
 		},
 
@@ -234,11 +274,28 @@ export function UpdateActions(self: ModuleInstance): void {
 				'Enable or disable the brightness filter. Disabling keeps the stored level and sends only "disabled".',
 			options: [...targetFields, { id: 'enabled', type: 'checkbox', label: 'Enabled', default: true }],
 			callback: async ({ options }) => {
+				cancelBrightnessFades(self, options)
 				const mode = options.enabled ? 'enabled' : 'disabled'
 				const value = options.enabled ? (self.state.brightness ?? 100) : 100
-				if (await self.controller.brightness(options, { mode, type: 'A', value })) {
+				if ((await self.controller.brightness(options, { mode, type: 'A', value })) && stateApplies(self, options)) {
 					self.setState({ brightnessFilter: mode })
 				}
+			},
+		},
+
+		color_set: {
+			name: 'Set color',
+			description:
+				'Show a solid color. Verified on Twinkly Pro (firmware 4.1.0) and Twinkly Squares (firmware 2.11.0, REST only). Optionally fade from the color already showing; a fade needs the lights to be in a known solid color, otherwise the change is instant.',
+			options: [
+				...targetFields,
+				{ id: 'color', type: 'colorpicker', label: 'Color', default: 0xff0000, returnType: 'number' },
+				fadeField,
+			],
+			callback: async ({ options }) => {
+				const color = rgbFromNumber(Number(options.color))
+				const fades = colorFades(self, options, options.fade, color)
+				await settle(self, fades, setColor(self, options, color, options.fade))
 			},
 		},
 
@@ -272,14 +329,17 @@ export function UpdateActions(self: ModuleInstance): void {
 					if (!Number.isFinite(n)) throw new Error(`"${v}" is not a number`)
 					return t === 'i' ? oscInt(n) : { type: 'f' as const, value: n }
 				})
-				self.sendCommand(self.resolveDeviceId(options), String(options.path).replace(/^\/+/, ''), args)
+				const path = String(options.path).replace(/^\/+/, '')
+				// A raw mode change would otherwise be undone by the next step of a running color fade
+				if (isModePath(path)) cancelColorFades(self, options)
+				self.sendCommand(self.resolveDeviceId(options), path, args)
 			},
 		},
 
 		scan: {
-			name: 'Scan network for controllers',
+			name: 'Rescan network for controllers',
 			description:
-				'Broadcasts a discovery probe on UDP 5555 to every network interface and logs the controllers that reply: name, model, group role and OSC status, and a suggested OSC device ID for Pro controllers. Twinkly Pro does not document this; it was verified on PRO controllers only. Twinkly lights also reply; they have no OSC.',
+				'Scans the network again to refresh the "Discovered device" list in the connection settings, and logs each controller that replies: name, model, group role and OSC status, and a suggested OSC device ID for Pro controllers. Twinkly Pro does not document the scan; it was verified on PRO controllers only. Twinkly lights also reply; they have no OSC.',
 			options: [],
 			callback: async () => runScan(self),
 		},

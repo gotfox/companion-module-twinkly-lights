@@ -1,3 +1,4 @@
+import { rgbFromNumber, sameColor } from './color.js'
 import type ModuleInstance from './main.js'
 import type { PlaylistInfo } from './rest-parse.js'
 import type { AssumedState } from './state.js'
@@ -18,6 +19,10 @@ export type FeedbacksSchema = {
 	playlist_is: {
 		type: 'boolean'
 		options: { index: number }
+	}
+	color_is: {
+		type: 'boolean'
+		options: { color: number }
 	}
 }
 
@@ -55,7 +60,7 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 						{ id: 'movie', label: 'Movie (effect)' },
 						{ id: 'playlist', label: 'Playlist' },
 						{ id: 'effect', label: 'Built-in effect (Twinkly)' },
-						{ id: 'color', label: 'Solid colour (Twinkly)' },
+						{ id: 'color', label: 'Solid color' },
 					],
 				},
 			],
@@ -94,6 +99,16 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 			defaultStyle: { bgcolor: 0x006600, color: 0xffffff },
 			options: [{ id: 'value', type: 'number', label: 'Brightness (%)', default: 100, min: 0, max: 100 }],
 			callback: (feedback) => self.state.brightness === feedback.options.value,
+		},
+		color_is: {
+			name: 'Color matches',
+			description:
+				'True if the lights are showing this solid color (read from the controller when state reading is on; otherwise the last color Companion sent).',
+			type: 'boolean',
+			defaultStyle: { bgcolor: 0x006600, color: 0xffffff },
+			options: [{ id: 'color', type: 'colorpicker', label: 'Color', default: 0xff0000, returnType: 'number' }],
+			callback: (feedback) =>
+				self.state.mode === 'color' && sameColor(self.state.color, rgbFromNumber(Number(feedback.options.color))),
 		},
 	})
 }

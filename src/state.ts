@@ -1,3 +1,4 @@
+import { colorHex, type RgbColor } from './color.js'
 import type { BrightnessInfo, ControllerMode, ModeInfo, MovieInfo } from './rest-parse.js'
 
 export type AppMode = ControllerMode
@@ -18,6 +19,8 @@ export interface AssumedState {
 	playlistUuid: string
 	brightness: number | null
 	brightnessFilter: 'unknown' | 'enabled' | 'disabled'
+	/** The solid color shown; null unless in color mode with a known color */
+	color: RgbColor | null
 }
 
 export const initialState = (): AssumedState => ({
@@ -29,7 +32,15 @@ export const initialState = (): AssumedState => ({
 	playlistUuid: '',
 	brightness: null,
 	brightnessFilter: 'unknown',
+	color: null,
 })
+
+/**
+ * The `color` variable: RRGGBB while in color mode, empty otherwise. Checking the mode matters because
+ * a command that only records the mode (Lights off, Play effect...) leaves an old color in the state.
+ */
+export const colorVariable = (state: Pick<AssumedState, 'mode' | 'color'>): string =>
+	state.mode === 'color' && state.color !== null ? colorHex(state.color) : ''
 
 /** Build state from a REST poll. The effect is reported by UUID; map it to a handle when the list has it. */
 export function stateFromController(mode: ModeInfo, brightness: BrightnessInfo, movies: MovieInfo[]): AssumedState {
@@ -44,5 +55,6 @@ export function stateFromController(mode: ModeInfo, brightness: BrightnessInfo, 
 		playlistUuid: mode.playlistUuid,
 		brightness: brightness.value,
 		brightnessFilter: brightness.filter,
+		color: mode.color ?? null,
 	}
 }

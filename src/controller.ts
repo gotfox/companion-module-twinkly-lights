@@ -1,3 +1,4 @@
+import { colorHex, type RgbColor } from './color.js'
 import { oscInt, oscString, type OscArg } from './osc.js'
 import type { BrightnessCommand, TwinklyRestClient } from './rest.js'
 import type { MovieInfo, PlaylistInfo } from './rest-parse.js'
@@ -7,6 +8,11 @@ export type TargetOptions = { target?: string; productType?: string; mac?: strin
 
 export type EffectSelector = { handle: number } | { uuid: string }
 
+export interface ColorOptions {
+	/** The lights already show a solid color, so a cheaper call can change it (used by fade steps) */
+	alreadySolid?: boolean
+}
+
 /** The commands every control method supports. Each returns true if the command was sent. */
 export interface Controller {
 	readonly kind: 'osc' | 'rest'
@@ -14,6 +20,8 @@ export interface Controller {
 	movie(target: TargetOptions, effect: EffectSelector): Promise<boolean>
 	playlist(target: TargetOptions, index: number): Promise<boolean>
 	brightness(target: TargetOptions, command: BrightnessCommand): Promise<boolean>
+	/** Show a solid color */
+	color(target: TargetOptions, color: RgbColor, options?: ColorOptions): Promise<boolean>
 	/** Consumer lights only */
 	builtinEffect(target: TargetOptions, index: number): Promise<boolean>
 }
@@ -53,6 +61,11 @@ export class OscController implements Controller {
 		return this.send(target, 'led/out/brightness', args)
 	}
 
+	async color(target: TargetOptions, c: RgbColor): Promise<boolean> {
+		// Verified on PRO firmware 4.1.0: three ints 0-255 in R, G, B order. A bare "color" is ignored.
+		return this.send(target, 'application/mode', [oscString('color'), oscInt(c.red), oscInt(c.green), oscInt(c.blue)])
+	}
+
 	async builtinEffect(): Promise<boolean> {
 		this.log(
 			'warn',
@@ -87,6 +100,9 @@ export class UnavailableController implements Controller {
 		return this.refuse()
 	}
 	async brightness(): Promise<boolean> {
+		return this.refuse()
+	}
+	async color(): Promise<boolean> {
 		return this.refuse()
 	}
 	async builtinEffect(): Promise<boolean> {
@@ -152,10 +168,32 @@ export class RestController implements Controller {
 		private readonly onSent: () => void,
 	) {}
 
+	/** Tail of the queue of commands to this controller */
+	private tail: Promise<void> = Promise.resolve()
+
+	/**
+	 * Run commands to this controller one at a time. A Twinkly light's color change is two requests, and
+	 * cancelling a fade can't recall one already in flight, so a later Lights off has to wait its turn
+	 * instead of landing in between (or before) them.
+	 */
+	private async inTurn<T>(task: () => Promise<T>): Promise<T> {
+		const previous = this.tail
+		let release: () => void = () => {}
+		this.tail = new Promise<void>((resolve) => {
+			release = resolve
+		})
+		await previous
+		try {
+			return await task()
+		} finally {
+			release()
+		}
+	}
+
 	private async run(what: string, command: () => Promise<void>): Promise<boolean> {
 		try {
 			this.log('debug', `REST -> ${this.client.host}: ${what}`)
-			await command()
+			await this.inTurn(command)
 			this.onSent()
 			return true
 		} catch (e) {
@@ -209,6 +247,13 @@ export class RestController implements Controller {
 		return this.run(`Brightness ${command.mode} ${command.type} ${command.value}`, async () =>
 			this.client.setBrightness(command),
 		)
+	}
+
+	async color(_target: TargetOptions, c: RgbColor, options?: ColorOptions): Promise<boolean> {
+		if (options?.alreadySolid) {
+			return this.run(`Color ${colorHex(c)} (update)`, async () => this.client.updateColor(c))
+		}
+		return this.run(`Color ${colorHex(c)}`, async () => this.client.setColor(c))
 	}
 
 	async builtinEffect(_target: TargetOptions, index: number): Promise<boolean> {

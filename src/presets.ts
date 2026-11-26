@@ -2,10 +2,13 @@ import type { CompanionPresetDefinitions, CompanionPresetSection } from '@compan
 import type ModuleInstance from './main.js'
 import type { ModuleSchema } from './main.js'
 import type { MovieInfo, PlaylistInfo } from './rest-parse.js'
+import { COLOR_PRESETS, colorToNumber, contrastText } from './color.js'
 
 /** Capacity of a PRO controller (gestalt max_movies / max_playlists), used when the lists are unknown */
 const PRO_MAX_EFFECTS = 32
 const PRO_MAX_PLAYLISTS = 4
+/** Fade time of the "Fade in / out" brightness presets */
+const FADE_PRESET_SECONDS = 5
 
 export interface EffectPresetEntry {
 	id: string
@@ -110,7 +113,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 			type: 'simple',
 			name: `Brightness ${pct}%`,
 			style: { text: `Bright\\n${pct}%`, size: 'auto', color: 0xffffff, bgcolor: 0x000000 },
-			steps: [{ down: [{ actionId: 'brightness_set', options: { ...defaultTarget, value: pct } }], up: [] }],
+			steps: [{ down: [{ actionId: 'brightness_set', options: { ...defaultTarget, value: pct, fade: 0 } }], up: [] }],
 			feedbacks: [{ feedbackId: 'brightness_is', options: { value: pct }, style: active }],
 		}
 	}
@@ -123,8 +126,47 @@ export function UpdatePresets(self: ModuleInstance): void {
 			type: 'simple',
 			name: label.replace('\\n', ' '),
 			style: { text: label, size: 'auto', color: 0xffffff, bgcolor: 0x000000 },
-			steps: [{ down: [{ actionId: 'brightness_adjust', options: { ...defaultTarget, delta } }], up: [] }],
+			steps: [{ down: [{ actionId: 'brightness_adjust', options: { ...defaultTarget, delta, fade: 0 } }], up: [] }],
 			feedbacks: [],
+		}
+	}
+
+	for (const [id, label, value] of [
+		['bright_fade_out', 'Fade out\\n5 s', 0],
+		['bright_fade_in', 'Fade in\\n5 s', 100],
+	] as const) {
+		brightnessIds.push(id)
+		presets[id] = {
+			type: 'simple',
+			name: label.replace('\\n', ' '),
+			style: { text: label, size: 'auto', color: 0xffffff, bgcolor: 0x000000 },
+			steps: [
+				{
+					down: [{ actionId: 'brightness_set', options: { ...defaultTarget, value, fade: FADE_PRESET_SECONDS } }],
+					up: [],
+				},
+			],
+			feedbacks: [],
+		}
+	}
+
+	const colorIds: string[] = []
+	for (const p of COLOR_PRESETS) {
+		const id = `color_${p.id}`
+		const rgb = colorToNumber(p.color)
+		colorIds.push(id)
+		presets[id] = {
+			type: 'simple',
+			name: `Color: ${p.label}`,
+			style: { text: p.label, size: 'auto', color: contrastText(p.color), bgcolor: rgb },
+			steps: [{ down: [{ actionId: 'color_set', options: { ...defaultTarget, color: rgb, fade: 0 } }], up: [] }],
+			feedbacks: [
+				{
+					feedbackId: 'color_is',
+					options: { color: rgb },
+					style: { text: `●\\n${p.label}` },
+				},
+			],
 		}
 	}
 
@@ -155,6 +197,11 @@ export function UpdatePresets(self: ModuleInstance): void {
 			id: 'brightness',
 			name: 'Brightness',
 			definitions: [{ id: 'levels', name: 'Brightness', type: 'simple', presets: brightnessIds }],
+		},
+		{
+			id: 'colors',
+			name: 'Colors',
+			definitions: [{ id: 'solid', name: 'Solid colors (Twinkly Pro)', type: 'simple', presets: colorIds }],
 		},
 	]
 

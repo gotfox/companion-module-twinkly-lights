@@ -1,4 +1,5 @@
 import type ModuleInstance from './main.js'
+import { colorVariable } from './state.js'
 
 export type VariablesSchema = {
 	mode: string
@@ -8,8 +9,8 @@ export type VariablesSchema = {
 	state_source: string
 	brightness: string
 	brightness_filter: string
+	color: string
 	target: string
-	discovered_devices: string
 	device_name: string
 	device_type: string
 }
@@ -23,8 +24,8 @@ export function UpdateVariableDefinitions(self: ModuleInstance): void {
 		state_source: { name: 'Where state comes from: controller (read back) or assumed (last command sent)' },
 		brightness: { name: 'Brightness (%)' },
 		brightness_filter: { name: 'Brightness filter (enabled / disabled)' },
+		color: { name: 'Solid color as RRGGBB hex (empty unless in color mode)' },
 		target: { name: 'Default OSC target (device ID or wildcard)' },
-		discovered_devices: { name: 'Devices found by the scan' },
 		device_name: { name: 'Device name, as set in the Twinkly app (needs a controller IP)' },
 		device_type: { name: 'Device type: Twinkly Pro or Twinkly, plus model code' },
 	})
@@ -46,6 +47,7 @@ export function UpdateVariableValues(self: ModuleInstance): void {
 		state_source: s.source,
 		brightness: s.brightness === null ? '' : String(s.brightness),
 		brightness_filter: s.brightnessFilter,
+		color: colorVariable(s),
 		target: self.defaultDeviceId() ?? 'invalid',
 		device_name: self.device?.deviceName ?? '',
 		device_type: deviceTypeLabel(self.deviceFamily, self.device?.productCode ?? ''),

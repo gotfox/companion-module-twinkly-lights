@@ -6,6 +6,8 @@
  * (which uses `/xled/v1/`). Every response is treated as untrusted and checked before use.
  */
 
+import { clampByte, type RgbColor } from './color.js'
+
 export const RESULT_OK = 1000
 /** Far above the 32 effects a PRO holds; guards dropdowns against a runaway reply */
 const MAX_LIST_ENTRIES = 256
@@ -21,7 +23,7 @@ export class RestResponseError extends Error {
 }
 
 export type GroupRole = 'master' | 'slave' | 'none' | 'unknown'
-/** `effect` (built-in effects) and `color` exist on consumer lights only */
+/** `effect` (built-in effects) exists on consumer lights only; `color` (a solid color) is also a Pro mode */
 export type ControllerMode = 'off' | 'movie' | 'playlist' | 'effect' | 'color' | 'unknown'
 const KNOWN_MODES: readonly ControllerMode[] = ['off', 'movie', 'playlist', 'effect', 'color']
 /** Consumer firmware reports an empty playlist with this UUID */
@@ -46,6 +48,8 @@ export interface ModeInfo {
 	effectUuid: string
 	playlistName: string
 	playlistUuid: string
+	/** The solid color shown. Only present in color mode, when the controller reports it. */
+	color?: RgbColor
 }
 
 export interface MovieInfo {
@@ -114,6 +118,16 @@ export function parseGestalt(body: unknown): Gestalt {
 	}
 }
 
+/** `color_config` as reported in color mode: red, green and blue as numbers. Anything else is ignored. */
+function parseColorConfig(value: unknown): RgbColor | undefined {
+	if (!isObject(value)) return undefined
+	const red = numOrNull(value.red)
+	const green = numOrNull(value.green)
+	const blue = numOrNull(value.blue)
+	if (red === null || green === null || blue === null) return undefined
+	return { red: clampByte(red), green: clampByte(green), blue: clampByte(blue) }
+}
+
 export function parseMode(body: unknown): ModeInfo {
 	const b = checkResult(body, 'application/mode')
 	if (typeof b.mode !== 'string') throw new RestResponseError('application/mode: missing "mode"')
@@ -128,12 +142,14 @@ export function parseMode(body: unknown): ModeInfo {
 			playlistUuid: str(b.unique_id),
 		}
 	}
+	const color = mode === 'color' ? parseColorConfig(b.color_config) : undefined
 	return {
 		mode,
 		effectName: mode === 'movie' ? str(b.name) : '',
 		effectUuid: mode === 'movie' ? str(b.unique_id) : '',
 		playlistName: '',
 		playlistUuid: '',
+		...(color ? { color } : {}),
 	}
 }
 
