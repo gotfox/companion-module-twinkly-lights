@@ -10,7 +10,7 @@ See [HELP.md](./companion/HELP.md) and [LICENSE](./LICENSE).
 yarn            # install
 yarn build      # compile to dist/
 yarn dev        # watch mode
-yarn test       # build + unit tests (OSC encoding and addressing)
+yarn test       # build + unit tests (OSC, REST, fades and colors)
 yarn lint
 yarn package    # build a distributable .tgz
 ```
