@@ -158,7 +158,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 		presets[id] = {
 			type: 'simple',
 			name: `Color: ${p.label}`,
-			style: { text: p.label, size: 'auto', color: contrastText(p.color), bgcolor: rgb },
+			style: { text: p.label, size: 'auto', color: contrastText(p.display), bgcolor: colorToNumber(p.display) },
 			steps: [{ down: [{ actionId: 'color_set', options: { ...defaultTarget, color: rgb, fade: 0 } }], up: [] }],
 			feedbacks: [
 				{

@@ -42,7 +42,10 @@ export function contrastText(background: RgbColor): number {
 export interface ColorPreset {
 	readonly id: string
 	readonly label: string
+	/** What the lights are sent. Tuned by eye, so it often looks wrong on a screen. */
 	readonly color: RgbColor
+	/** What the button shows: how the lights look to the eye, in plain screen RGB. */
+	readonly display: RgbColor
 }
 
 /**
@@ -50,23 +53,73 @@ export interface ColorPreset {
  * warm colors carry far less green, and the whites lean away from green, than the textbook RGB values.
  */
 export const COLOR_PRESETS: readonly ColorPreset[] = [
-	{ id: 'red', label: 'Red', color: { red: 255, green: 0, blue: 0 } },
-	{ id: 'orange', label: 'Orange', color: { red: 255, green: 25, blue: 0 } },
-	{ id: 'amber', label: 'Amber', color: { red: 255, green: 48, blue: 0 } },
-	{ id: 'gold', label: 'Gold', color: { red: 255, green: 70, blue: 0 } },
-	{ id: 'yellow', label: 'Yellow', color: { red: 255, green: 130, blue: 0 } },
-	{ id: 'lime', label: 'Lime', color: { red: 120, green: 255, blue: 0 } },
-	{ id: 'green', label: 'Green', color: { red: 0, green: 255, blue: 0 } },
-	{ id: 'mint', label: 'Mint', color: { red: 0, green: 255, blue: 40 } },
-	{ id: 'cyan', label: 'Cyan', color: { red: 0, green: 255, blue: 255 } },
-	{ id: 'sky_blue', label: 'Sky blue', color: { red: 0, green: 60, blue: 255 } },
-	{ id: 'blue', label: 'Blue', color: { red: 0, green: 0, blue: 255 } },
-	{ id: 'indigo', label: 'Indigo', color: { red: 64, green: 0, blue: 255 } },
-	{ id: 'purple', label: 'Purple', color: { red: 100, green: 0, blue: 255 } },
-	{ id: 'lavender', label: 'Lavender', color: { red: 150, green: 40, blue: 255 } },
-	{ id: 'magenta', label: 'Magenta', color: { red: 255, green: 0, blue: 255 } },
-	{ id: 'pink', label: 'Pink', color: { red: 255, green: 30, blue: 110 } },
-	{ id: 'warm_white', label: 'Warm white', color: { red: 255, green: 110, blue: 30 } },
-	{ id: 'cool_white', label: 'Cool white', color: { red: 130, green: 140, blue: 255 } },
-	{ id: 'white', label: 'White', color: { red: 255, green: 255, blue: 255 } },
+	{ id: 'red', label: 'Red', color: { red: 255, green: 0, blue: 0 }, display: { red: 255, green: 0, blue: 0 } },
+	{
+		id: 'orange',
+		label: 'Orange',
+		color: { red: 255, green: 25, blue: 0 },
+		display: { red: 255, green: 128, blue: 0 },
+	},
+	{ id: 'amber', label: 'Amber', color: { red: 255, green: 48, blue: 0 }, display: { red: 255, green: 176, blue: 0 } },
+	{ id: 'gold', label: 'Gold', color: { red: 255, green: 70, blue: 0 }, display: { red: 255, green: 215, blue: 0 } },
+	{
+		id: 'yellow',
+		label: 'Yellow',
+		color: { red: 255, green: 130, blue: 0 },
+		display: { red: 255, green: 240, blue: 0 },
+	},
+	{ id: 'lime', label: 'Lime', color: { red: 120, green: 255, blue: 0 }, display: { red: 128, green: 255, blue: 0 } },
+	{ id: 'green', label: 'Green', color: { red: 0, green: 255, blue: 0 }, display: { red: 0, green: 255, blue: 0 } },
+	{ id: 'mint', label: 'Mint', color: { red: 0, green: 255, blue: 40 }, display: { red: 80, green: 255, blue: 160 } },
+	{ id: 'cyan', label: 'Cyan', color: { red: 0, green: 255, blue: 255 }, display: { red: 0, green: 255, blue: 255 } },
+	{
+		id: 'sky_blue',
+		label: 'Sky blue',
+		color: { red: 0, green: 60, blue: 255 },
+		display: { red: 0, green: 160, blue: 255 },
+	},
+	{ id: 'blue', label: 'Blue', color: { red: 0, green: 0, blue: 255 }, display: { red: 0, green: 0, blue: 255 } },
+	{ id: 'indigo', label: 'Indigo', color: { red: 64, green: 0, blue: 255 }, display: { red: 75, green: 0, blue: 210 } },
+	{
+		id: 'purple',
+		label: 'Purple',
+		color: { red: 100, green: 0, blue: 255 },
+		display: { red: 140, green: 0, blue: 255 },
+	},
+	{
+		id: 'lavender',
+		label: 'Lavender',
+		color: { red: 150, green: 40, blue: 255 },
+		display: { red: 190, green: 140, blue: 255 },
+	},
+	{
+		id: 'magenta',
+		label: 'Magenta',
+		color: { red: 255, green: 0, blue: 255 },
+		display: { red: 255, green: 0, blue: 255 },
+	},
+	{
+		id: 'pink',
+		label: 'Pink',
+		color: { red: 255, green: 30, blue: 110 },
+		display: { red: 255, green: 105, blue: 180 },
+	},
+	{
+		id: 'warm_white',
+		label: 'Warm white',
+		color: { red: 255, green: 110, blue: 30 },
+		display: { red: 255, green: 190, blue: 110 },
+	},
+	{
+		id: 'cool_white',
+		label: 'Cool white',
+		color: { red: 130, green: 140, blue: 255 },
+		display: { red: 190, green: 205, blue: 255 },
+	},
+	{
+		id: 'white',
+		label: 'White',
+		color: { red: 255, green: 255, blue: 255 },
+		display: { red: 255, green: 255, blue: 255 },
+	},
 ]
