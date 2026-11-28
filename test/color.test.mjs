@@ -54,8 +54,20 @@ test('contrastText picks black on light colors and white on dark ones', () => {
 	assert.equal(contrastText({ red: 0, green: 0, blue: 0 }), 0xffffff)
 })
 
+test('no two color presets are the same color', () => {
+	const values = COLOR_PRESETS.map((p) => colorToNumber(p.color))
+	assert.equal(new Set(values).size, values.length)
+})
+
+test('the warm presets run orange, amber, gold, yellow, each with more green than the last', () => {
+	const green = (id) => COLOR_PRESETS.find((p) => p.id === id)?.color.green
+	const [orange, amber, gold, yellow] = ['orange', 'amber', 'gold', 'yellow'].map(green)
+	assert.ok([orange, amber, gold, yellow].every((g) => g !== undefined), 'all four presets exist')
+	assert.ok(orange < amber && amber < gold && gold < yellow)
+})
+
 test('color presets have unique ids and valid channel values', () => {
-	assert.ok(COLOR_PRESETS.length >= 8)
+	assert.ok(COLOR_PRESETS.length >= 19)
 	assert.equal(new Set(COLOR_PRESETS.map((p) => p.id)).size, COLOR_PRESETS.length)
 	for (const p of COLOR_PRESETS) {
 		assert.ok(p.label.length > 0)
